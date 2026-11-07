@@ -1,5 +1,7 @@
 # CramPlan
 
+[![CI](https://github.com/Kenneth882/Fecha/actions/workflows/ci.yml/badge.svg)](https://github.com/Kenneth882/Fecha/actions/workflows/ci.yml)
+
 **A language prep app that builds a day-by-day cram plan for one real event by one fixed date.**
 
 Tell CramPlan what's coming — a job interview in Spanish, a wedding speech in Korean, a move to Spain — when it happens, and your current level. It generates a backward-planned study schedule, runs voice roleplay rehearsals of the actual scenario, and tracks a readiness score until the deadline.
@@ -92,8 +94,10 @@ docker compose up             # api, worker, postgres, redis
 ### Local backend development
 
 ```bash
+cp .env.example .env          # from the repo root; set JWT_SECRET (32+ chars)
 cd backend
 uv sync
+uv run pre-commit install     # ruff, ruff-format and mypy on every commit
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 uv run arq app.workers.tasks.WorkerSettings   # in a second terminal
@@ -106,7 +110,7 @@ cd backend
 uv run pytest                 # unit + API tests
 uv run pytest --cov=app/services
 uv run ruff check . && uv run ruff format --check .
-uv run mypy app
+uv run mypy app tests
 ```
 
 ---
