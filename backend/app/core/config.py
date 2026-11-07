@@ -1,5 +1,9 @@
+from pathlib import Path
+
 from pydantic import Field, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 
 class ConfigError(RuntimeError):
@@ -10,8 +14,9 @@ class Settings(BaseSettings):
     """The single source of configuration, read from env vars or an env file."""
 
     model_config = SettingsConfigDict(
+        # Anchored to this file, not the working directory.
         # Later files win: backend/.env overrides the repo-root .env.
-        env_file=("../.env", ".env"),
+        env_file=(BACKEND_DIR.parent / ".env", BACKEND_DIR / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )

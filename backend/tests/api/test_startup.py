@@ -1,16 +1,12 @@
-from pathlib import Path
-
 import pytest
 
-from app.core.config import ConfigError
-from app.factory import create_app
+from app.core.config import ConfigError, Settings
+from app.main import create_app
 
 
-def test_app_refuses_to_start_without_jwt_secret(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_app_refuses_to_start_without_jwt_secret(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("JWT_SECRET", raising=False)
-    monkeypatch.chdir(tmp_path)  # no .env files reachable from here
+    monkeypatch.setitem(Settings.model_config, "env_file", None)  # ignore any local .env
 
     with pytest.raises(ConfigError, match="JWT_SECRET"):
         create_app()
