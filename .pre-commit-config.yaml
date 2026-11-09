@@ -11,7 +11,7 @@ repos:
     hooks:
       - id: mypy
         name: mypy (strict)
-        entry: bash -c 'cd backend && uv run mypy app tests'
+        entry: bash -c 'cd backend && uv run mypy app tests alembic'
         language: system
         files: ^backend/.*\.py$
         pass_filenames: false

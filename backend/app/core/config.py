@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     # Required, no default: the app must never sign tokens with a guessable key.
     jwt_secret: SecretStr = Field(min_length=32)
 
+    # e.g. postgresql+asyncpg://user:password@host:5432/dbname
+    database_url: SecretStr
+    # e.g. redis://host:6379/0
+    redis_url: SecretStr
+
 
 def load_settings(env_file: Path | None = ROOT_ENV_FILE) -> Settings:
     """Read Settings from env vars plus `env_file` (None: env vars only).
