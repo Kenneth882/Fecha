@@ -100,7 +100,7 @@ cd backend
 uv sync
 uv run pre-commit install     # ruff, ruff-format and mypy on every commit
 uv run alembic upgrade head
-uv run uvicorn --factory app.main:create_app --reload
+uv run uvicorn --factory app.main:create_app --reload --no-access-log
 uv run arq app.workers.tasks.WorkerSettings   # in a second terminal
 ```
 
@@ -140,6 +140,12 @@ All routes live under `/api/v1` and require a JWT by default. The only public ro
 | GET | `/roleplay/sessions/{id}` | Transcript + feedback |
 | GET | `/events/{id}/readiness` | Readiness report + daily trend |
 | GET | `/admin/metrics` | LLM cost and voice latency (admin only) |
+
+### Request IDs and logs
+
+Every HTTP response carries an `X-Request-ID` header. If the request sent one, it's echoed back, but only if it is 1–128 characters of `A–Z a–z 0–9 . _ -`. Anything else is replaced with a generated ID, since the ID is written to logs. Crashed requests get their 500 with the header too.
+
+The API logs JSON lines to stdout. Each request writes one access line (`method`, `path`, `status`, `duration_ms`, `request_id`): INFO normally, ERROR with the traceback when the route crashed. Every other log line written during a request carries the same `request_id`. `LOG_LEVEL` (default `INFO`) sets the level, so `WARNING` and above keeps only the crash lines. Run uvicorn with `--no-access-log` so it doesn't write a second, plain-text access line.
 
 ---
 

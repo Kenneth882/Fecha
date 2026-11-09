@@ -6,6 +6,8 @@ from fastapi.routing import APIRoute
 
 from app.api.v1.router import public_router
 from app.core.config import Settings, load_settings
+from app.core.logging import configure_logging
+from app.core.middleware import RequestContextMiddleware
 from app.db.redis import create_redis
 from app.db.session import create_engine, create_session_factory
 
@@ -46,6 +48,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     """
     if settings is None:
         settings = load_settings()
+    configure_logging(settings.log_level)
     app = FastAPI(
         title="CramPlan API",
         version="0.1.0",
@@ -53,5 +56,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         generate_unique_id_function=operation_id,
     )
     app.state.settings = settings
+    app.add_middleware(RequestContextMiddleware)
     app.include_router(public_router)
     return app
