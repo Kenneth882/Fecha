@@ -11,6 +11,35 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: cramplan
+          POSTGRES_PASSWORD: cramplan
+          POSTGRES_DB: cramplan
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U cramplan -d cramplan"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      # CI-only throwaway values; nothing here is a real secret.
+      JWT_SECRET: ci-only-jwt-secret-that-is-at-least-32-bytes
+      DATABASE_URL: postgresql+asyncpg://cramplan:cramplan@localhost:5432/cramplan
+      TEST_DATABASE_URL: postgresql+asyncpg://cramplan:cramplan@localhost:5432/cramplan_test
+      REDIS_URL: redis://localhost:6379/0
     steps:
       - uses: actions/checkout@v5
 
@@ -29,7 +58,18 @@ jobs:
         run: uv run ruff format --check .
 
       - name: Type check
-        run: uv run mypy app tests
+        run: uv run mypy app tests alembic
+
+      - name: Migrate an empty database
+        run: uv run alembic upgrade head
+
+      - name: Check models match migrations
+        run: uv run alembic check
+
+      - name: Create the test database
+        run: createdb -h localhost -U cramplan cramplan_test
+        env:
+          PGPASSWORD: cramplan
 
       - name: Test
         run: uv run pytest

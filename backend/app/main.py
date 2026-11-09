@@ -6,12 +6,26 @@ from fastapi.routing import APIRoute
 
 from app.api.v1.router import public_router
 from app.core.config import Settings, load_settings
+from app.db.redis import create_redis
+from app.db.session import create_engine, create_session_factory
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # Startup/shutdown of the DB engine, Redis pool and HTTP clients goes here.
-    yield
+    """Open the DB engine and Redis pool on startup; close them on shutdown.
+
+    HTTP clients join here when they're added.
+    """
+    settings: Settings = app.state.settings
+    engine = create_engine(settings)
+    redis = create_redis(settings)
+    app.state.session_factory = create_session_factory(engine)
+    app.state.redis = redis
+    try:
+        yield
+    finally:
+        await redis.aclose()
+        await engine.dispose()
 
 
 def operation_id(route: APIRoute) -> str:

@@ -9,9 +9,9 @@ from app.core.deps import get_settings
 from app.main import create_app
 
 
-async def test_routes_receive_the_settings_the_app_was_built_with() -> None:
-    custom = Settings(
-        jwt_secret=SecretStr("a-non-default-secret-of-at-least-32-bytes"), _env_file=None
+async def test_routes_receive_the_settings_the_app_was_built_with(settings: Settings) -> None:
+    custom = settings.model_copy(
+        update={"jwt_secret": SecretStr("a-non-default-secret-of-at-least-32-bytes")}
     )
     app = create_app(custom)
     seen: list[Settings] = []

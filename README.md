@@ -95,6 +95,7 @@ docker compose up             # api, worker, postgres, redis
 
 ```bash
 cp .env.example .env          # the one .env, at the repo root; set JWT_SECRET (32+ chars)
+docker compose up -d postgres redis   # also creates the cramplan_test database
 cd backend
 uv sync
 uv run pre-commit install     # ruff, ruff-format and mypy on every commit
@@ -107,10 +108,10 @@ uv run arq app.workers.tasks.WorkerSettings   # in a second terminal
 
 ```bash
 cd backend
-uv run pytest                 # unit + API tests
+uv run pytest                 # unit + API tests; needs postgres and redis running
 uv run pytest --cov=app/services
 uv run ruff check . && uv run ruff format --check .
-uv run mypy app tests
+uv run mypy app tests alembic
 ```
 
 ---

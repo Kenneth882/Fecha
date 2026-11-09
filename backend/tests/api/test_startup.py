@@ -19,13 +19,22 @@ def test_settings_refuse_to_load_without_jwt_secret(monkeypatch: pytest.MonkeyPa
 def test_settings_load_from_the_given_env_file(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    monkeypatch.delenv("JWT_SECRET", raising=False)
+    for name in ("JWT_SECRET", "DATABASE_URL", "REDIS_URL"):
+        monkeypatch.delenv(name, raising=False)
     env_file = tmp_path / ".env"
-    env_file.write_text("JWT_SECRET=from-the-env-file-and-at-least-32-bytes\n")
+    env_file.write_text(
+        "JWT_SECRET=from-the-env-file-and-at-least-32-bytes\n"
+        "DATABASE_URL=postgresql+asyncpg://u:p@db-from-file:5432/app\n"
+        "REDIS_URL=redis://redis-from-file:6379/0\n"
+    )
 
     settings = load_settings(env_file=env_file)
 
     assert settings.jwt_secret.get_secret_value() == "from-the-env-file-and-at-least-32-bytes"
+    assert (
+        settings.database_url.get_secret_value() == "postgresql+asyncpg://u:p@db-from-file:5432/app"
+    )
+    assert settings.redis_url.get_secret_value() == "redis://redis-from-file:6379/0"
 
 
 def test_importing_the_app_module_loads_no_settings() -> None:
