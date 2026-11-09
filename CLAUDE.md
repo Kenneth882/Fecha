@@ -20,7 +20,8 @@ This is a portfolio SWE project built over an 8-week plan (see Roadmap in `READM
 Run from `backend/` unless noted.
 
 ```bash
-docker compose up                              # full stack: api, worker, postgres, redis
+docker compose up                              # from the repo root: full stack (api, worker, postgres, redis)
+docker compose up -d postgres redis            # from the repo root: just the services, for host development
 uv sync                                        # install deps
 uv run uvicorn --factory app.main:create_app --reload --no-access-log  # API on :8000, docs at /docs; the app writes its own JSON access log
 uv run arq app.workers.tasks.WorkerSettings    # background worker
