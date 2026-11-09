@@ -22,7 +22,7 @@ Run from `backend/` unless noted.
 ```bash
 docker compose up                              # full stack: api, worker, postgres, redis
 uv sync                                        # install deps
-uv run uvicorn --factory app.main:create_app --reload  # API on :8000, docs at /docs
+uv run uvicorn --factory app.main:create_app --reload --no-access-log  # API on :8000, docs at /docs; the app writes its own JSON access log
 uv run arq app.workers.tasks.WorkerSettings    # background worker
 uv run alembic revision --autogenerate -m "…"  # new migration
 uv run alembic upgrade head                    # apply migrations

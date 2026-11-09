@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -6,6 +7,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # The repo-root .env, anchored to this file rather than the working directory.
 # Containers don't use it: compose passes config as real env vars.
 ROOT_ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
+
+LogLevel = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 
 
 class ConfigError(RuntimeError):
@@ -27,6 +30,9 @@ class Settings(BaseSettings):
     database_url: SecretStr
     # e.g. redis://host:6379/0
     redis_url: SecretStr
+
+    # Level for the app's JSON logs (the per-request access line is INFO).
+    log_level: LogLevel = "INFO"
 
 
 def load_settings(env_file: Path | None = ROOT_ENV_FILE) -> Settings:
