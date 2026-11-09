@@ -22,7 +22,7 @@ Run from `backend/` unless noted.
 ```bash
 docker compose up                              # full stack: api, worker, postgres, redis
 uv sync                                        # install deps
-uv run uvicorn app.main:app --reload           # API on :8000, docs at /docs
+uv run uvicorn --factory app.main:create_app --reload  # API on :8000, docs at /docs
 uv run arq app.workers.tasks.WorkerSettings    # background worker
 uv run alembic revision --autogenerate -m "…"  # new migration
 uv run alembic upgrade head                    # apply migrations
@@ -42,7 +42,8 @@ Always use `uv run` / `uv add` — never `pip install`.
 - **Layering:** `api/v1/*` routers → `services/*` → `models/*` via the DB session. Routers stay thin: validate, call a service, return a schema.
 - **Schemas vs models:** `schemas/` holds Pydantic request/response models; `models/` holds SQLAlchemy tables. Don't return ORM objects directly from routes without a response schema.
 - **Dependencies:** get the DB session and current user via `Depends(get_db)` / `Depends(get_current_user)` from `core/deps.py`. `get_db` is a `yield` dependency.
-- **Config:** all settings come from `core/config.py` (pydantic-settings, env files). No hardcoded URLs, keys or secrets; never commit `.env`.
+- **Config:** all settings come from `core/config.py` (pydantic-settings). Locally they're read from env vars plus the single repo-root `.env`; containers get real env vars from compose, not files. No hardcoded URLs, keys or secrets; never commit `.env`.
+- **Composition roots:** only `create_app`, the arq worker's startup and `alembic/env.py` call `load_settings()`. Everything else receives `Settings` as a parameter or via `Depends(get_settings)` from `core/deps.py`. `app.main` has no module-level app: the API runs with `uvicorn --factory app.main:create_app`.
 - **Long work goes to the worker.** Plan and report generation run as arq jobs in `workers/tasks.py`, not in the request path. `POST /events` enqueues plan generation.
 - **Plans are versioned.** Re-planning creates a new `Plan` version; it must never lose or overwrite completed tasks.
 - **Startup/shutdown** (DB engine, Redis pool, HTTP clients) goes in the `lifespan` context manager in `main.py`.
@@ -73,7 +74,8 @@ Always use `uv run` / `uv add` — never `pip install`.
 
 - Full type hints everywhere; code must pass `mypy`.
 - Async all the way down in the API (async SQLAlchemy sessions, async HTTP clients).
-- All routes under `/api/v1`; all except `/auth/*` require JWT. Admin-only routes (e.g. `/admin/metrics`) check role.
+- All routes under `/api/v1`, protected by default: new routes go on the protected router. The only public exceptions are `/auth/*`, `/health` and `/health/ready`, on `public_router`. Admin-only routes (e.g. `/admin/metrics`) check role.
+- Every route has exactly one tag; OpenAPI operation IDs are `{tag}-{route name}` (e.g. `health-liveness`) and feed the generated TS client.
 - Structured JSON logging with a request ID per call.
 - Security: hashed passwords, short-lived JWTs, no secrets in the repo.
 - Schema changes always go through an Alembic migration.

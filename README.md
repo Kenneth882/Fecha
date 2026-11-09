@@ -94,12 +94,12 @@ docker compose up             # api, worker, postgres, redis
 ### Local backend development
 
 ```bash
-cp .env.example .env          # from the repo root; set JWT_SECRET (32+ chars)
+cp .env.example .env          # the one .env, at the repo root; set JWT_SECRET (32+ chars)
 cd backend
 uv sync
 uv run pre-commit install     # ruff, ruff-format and mypy on every commit
 uv run alembic upgrade head
-uv run uvicorn app.main:app --reload
+uv run uvicorn --factory app.main:create_app --reload
 uv run arq app.workers.tasks.WorkerSettings   # in a second terminal
 ```
 
@@ -117,10 +117,12 @@ uv run mypy app tests
 
 ## API overview
 
-All routes live under `/api/v1`. Everything except auth requires a JWT.
+All routes live under `/api/v1` and require a JWT by default. The only public routes are `/auth/*`, `/health` (liveness) and `/health/ready` (readiness).
 
 | Method | Path | Purpose |
 |---|---|---|
+| GET | `/health` | Liveness (public) |
+| GET | `/health/ready` | Readiness: Postgres and Redis (public; added in #3) |
 | POST | `/auth/register` | Create account |
 | POST | `/auth/login` | Return access token |
 | GET | `/auth/me` | Current user |
