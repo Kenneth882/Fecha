@@ -3,7 +3,9 @@ from pathlib import Path
 from pydantic import Field, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-BACKEND_DIR = Path(__file__).resolve().parents[2]
+# The repo-root .env, anchored to this file rather than the working directory.
+# Containers don't use it: compose passes config as real env vars.
+ROOT_ENV_FILE = Path(__file__).resolve().parents[3] / ".env"
 
 
 class ConfigError(RuntimeError):
@@ -14,9 +16,6 @@ class Settings(BaseSettings):
     """The single source of configuration, read from env vars or an env file."""
 
     model_config = SettingsConfigDict(
-        # Anchored to this file, not the working directory.
-        # Later files win: backend/.env overrides the repo-root .env.
-        env_file=(BACKEND_DIR.parent / ".env", BACKEND_DIR / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -25,10 +24,15 @@ class Settings(BaseSettings):
     jwt_secret: SecretStr = Field(min_length=32)
 
 
-def load_settings() -> Settings:
-    """Read Settings from the environment, turning validation failures into a clear error."""
+def load_settings(env_file: Path | None = ROOT_ENV_FILE) -> Settings:
+    """Read Settings from env vars plus `env_file` (None: env vars only).
+
+    Call this only from composition roots (`create_app`, the worker's startup,
+    `alembic/env.py`); everything else receives Settings as a parameter or dependency.
+    Validation failures become a ConfigError naming each missing or invalid variable.
+    """
     try:
-        return Settings()
+        return Settings(_env_file=env_file)
     except ValidationError as exc:
         problems = "\n".join(
             f"  {'.'.join(str(part) for part in error['loc']).upper()}: {error['msg']}"

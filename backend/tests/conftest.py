@@ -1,17 +1,13 @@
-import os
 from collections.abc import AsyncIterator
 
 import pytest
 from httpx import ASGITransport, AsyncClient
 from pydantic import SecretStr
 
+from app.core.config import Settings
+from app.main import create_app
+
 TEST_JWT_SECRET = "test-secret-that-is-at-least-32-bytes-long"
-
-# app.main builds the app at import time, which needs a JWT secret.
-os.environ.setdefault("JWT_SECRET", TEST_JWT_SECRET)
-
-from app.core.config import Settings  # noqa: E402
-from app.main import create_app  # noqa: E402
 
 
 @pytest.fixture

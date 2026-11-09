@@ -2,5 +2,7 @@ from fastapi import APIRouter
 
 from app.api.v1 import health
 
-api_router = APIRouter(prefix="/api/v1")
-api_router.include_router(health.router)
+# Routes that need no auth: /health now, /auth/* later. Everything else goes on
+# the protected router (added with auth in #7), so new routes are protected by default.
+public_router = APIRouter(prefix="/api/v1")
+public_router.include_router(health.router)
