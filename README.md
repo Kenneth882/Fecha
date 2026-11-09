@@ -82,20 +82,22 @@ Existing apps, courses and tutors don't sell one prep pack for one event by one 
 Goal: clone, run one command, and try the seeded demo in under 5 minutes.
 
 ```bash
-git clone <repo-url> cramplan && cd cramplan
-cp .env.example .env          # add your LLM / voice API keys
+git clone https://github.com/Kenneth882/Fecha.git cramplan && cd cramplan
+cp .env.example .env          # the placeholders work as-is on your machine
 docker compose up             # api, worker, postgres, redis
 ```
 
-- API: http://localhost:8000 — interactive docs at http://localhost:8000/docs
-- Web: http://localhost:3000
+The api container applies migrations (`alembic upgrade head`) before it starts serving, so a fresh database needs no manual steps.
+
+- API: http://localhost:8000 — interactive docs at http://localhost:8000/docs, readiness at http://localhost:8000/api/v1/health/ready
+- Web: http://localhost:3000 (_TBD_, once `web/` lands)
 - Demo account: **"Job interview in Spanish, 12 days out"** — credentials _TBD_
 
 ### Local backend development
 
 ```bash
-cp .env.example .env          # the one .env, at the repo root; set JWT_SECRET (32+ chars)
-docker compose up -d postgres redis   # also creates the cramplan_test database
+cp .env.example .env          # the one .env, at the repo root
+docker compose up -d postgres redis   # only the services; also creates the cramplan_test database
 cd backend
 uv sync
 uv run pre-commit install     # ruff, ruff-format and mypy on every commit
@@ -202,29 +204,39 @@ _TBD — e.g. arq vs. Celery, pipelined STT/LLM/TTS vs. realtime voice API, temp
 
 ## Project layout
 
+Entries marked _(planned)_ don't exist yet; they land with the roadmap weeks below.
+
 ```
+docker-compose.yml         # api, worker, postgres, redis (run from the repo root)
+.env.example               # every setting, with local placeholders; copy to .env
+docker/postgres/init/      # first-run SQL: creates the cramplan_test database
+docs/adr/                  # architecture decision records
+GLOSSARY.md                # domain language
 backend/
+├── Dockerfile             # one image for the api and worker services
 ├── app/
 │   ├── main.py            # app factory, lifespan, middleware, routers
-│   ├── core/              # config (pydantic-settings), security (JWT, hashing), deps
-│   ├── db/                # base, async engine + sessionmaker
+│   ├── core/              # config (pydantic-settings), deps, JSON logging, middleware
+│   ├── db/                # async engine + sessionmaker, Redis client
 │   ├── models/            # SQLAlchemy tables
 │   ├── schemas/           # Pydantic request/response models
-│   ├── api/v1/            # auth, events, plans, practice, roleplay (WebSocket)
+│   ├── api/v1/            # health; auth, events, plans, practice, roleplay (planned)
 │   ├── services/
-│   │   ├── planner.py     # backward planning algorithm (pure Python)
-│   │   ├── srs.py         # deadline-compressed scheduler (pure Python)
-│   │   ├── llm.py         # plan/scenario generation
-│   │   ├── voice.py       # STT/TTS pipeline
-│   │   └── scoring.py     # readiness score
-│   └── workers/tasks.py   # arq jobs: plan + report generation
+│   │   ├── health.py      # readiness checks
+│   │   ├── planner.py     # backward planning algorithm, pure Python (planned)
+│   │   ├── srs.py         # deadline-compressed scheduler, pure Python (planned)
+│   │   ├── llm.py         # plan/scenario generation (planned)
+│   │   ├── voice.py       # STT/TTS pipeline (planned)
+│   │   └── scoring.py     # readiness score (planned)
+│   └── workers/tasks.py   # arq jobs and WorkerSettings; plan + report jobs (planned)
 ├── alembic/
 ├── tests/
-│   ├── unit/              # srs, planner (no DB)
-│   └── api/               # endpoint tests with dependency overrides
-├── pyproject.toml
-└── docker-compose.yml     # api, worker, postgres, redis
-web/                       # Next.js + TypeScript PWA
+│   ├── unit/              # srs, planner, scoring (no DB)
+│   ├── api/               # endpoint tests with dependency overrides
+│   ├── db/                # transactional test session
+│   └── workers/           # arq worker round-trip against test Redis
+└── pyproject.toml
+web/                       # Next.js + TypeScript PWA (planned)
 ```
 
 ---

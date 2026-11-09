@@ -1,8 +1,40 @@
-# Local development services. Start them with:
+# The full stack: cp .env.example .env && docker compose up
+# For backend development on the host, start only the services:
 #   docker compose up -d postgres redis
-# The api and worker services join this file in later tickets.
+
+# Shared by api and worker. Inside the network the services are reached by name,
+# not localhost, so the URLs are set here rather than taken from .env.
+x-backend: &backend
+  build: ./backend
+  environment:
+    JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env (see .env.example)}
+    DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-cramplan}:${POSTGRES_PASSWORD:-cramplan}@postgres:5432/${POSTGRES_DB:-cramplan}
+    REDIS_URL: redis://redis:6379/0
+    LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  restart: unless-stopped
 
 services:
+  api:
+    <<: *backend
+    # Migrate before serving, so a fresh database is ready without manual steps.
+    command: >-
+      sh -c "alembic upgrade head &&
+      exec uvicorn --factory app.main:create_app --host 0.0.0.0 --port 8000 --no-access-log"
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    <<: *backend
+    command: ["arq", "app.workers.tasks.WorkerSettings"]
+    depends_on:
+      redis:
+        condition: service_healthy
+
   postgres:
     image: postgres:17-alpine
     environment:
