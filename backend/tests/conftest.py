@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator
 
 import pytest
+from fastapi import FastAPI
 from httpx import AsyncClient
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -9,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 from app.core.config import ROOT_ENV_FILE, Settings
 from app.core.deps import get_db
 from app.main import create_app
+from tests.auth import RegisteredUser, register_and_log_in
 from tests.clients import running_client
 from tests.db.fixtures import build_test_schema, transactional_session
 
@@ -58,13 +60,25 @@ def settings(test_env: TestEnv) -> Settings:
 
 
 @pytest.fixture
-async def client(settings: Settings, db_session: AsyncSession) -> AsyncIterator[AsyncClient]:
-    """A client for the app, with its lifespan run and `get_db` swapped for `db_session`."""
+def app(settings: Settings, db_session: AsyncSession) -> FastAPI:
+    """The app under test, with `get_db` swapped for `db_session`."""
     app = create_app(settings)
 
     async def override_get_db() -> AsyncIterator[AsyncSession]:
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
+    return app
+
+
+@pytest.fixture
+async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
+    """A client for `app`, with its lifespan run."""
     async with running_client(app) as client:
         yield client
+
+
+@pytest.fixture
+async def user(client: AsyncClient) -> RegisteredUser:
+    """A registered, logged-in User: send `user.headers` to act as them."""
+    return await register_and_log_in(client)

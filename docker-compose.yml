@@ -11,6 +11,7 @@ x-backend: &backend
     DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-cramplan}:${POSTGRES_PASSWORD:-cramplan}@postgres:5432/${POSTGRES_DB:-cramplan}
     REDIS_URL: redis://redis:6379/0
     LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
   restart: unless-stopped
 
 services:

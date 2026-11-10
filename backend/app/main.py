@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 
-from app.api.v1.router import public_router
+from app.api.v1.router import protected_router, public_router
 from app.core.config import Settings, load_settings
 from app.core.errors import install_error_handlers
 from app.core.logging import configure_logging
@@ -63,4 +63,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     install_error_handlers(app)
     app.add_middleware(RequestContextMiddleware)
     app.include_router(public_router)
+    app.include_router(protected_router)
     return app
