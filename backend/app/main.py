@@ -6,8 +6,10 @@ from fastapi.routing import APIRoute
 
 from app.api.v1.router import public_router
 from app.core.config import Settings, load_settings
+from app.core.errors import install_error_handlers
 from app.core.logging import configure_logging
 from app.core.middleware import RequestContextMiddleware
+from app.data import common_passwords
 from app.db.redis import create_redis
 from app.db.session import create_engine, create_session_factory
 
@@ -19,6 +21,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     HTTP clients join here when they're added.
     """
     settings: Settings = app.state.settings
+    # Read the bundled password lists now, not on the first registration.
+    common_passwords()
     engine = create_engine(settings)
     redis = create_redis(settings)
     app.state.session_factory = create_session_factory(engine)
@@ -56,6 +60,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         generate_unique_id_function=operation_id,
     )
     app.state.settings = settings
+    install_error_handlers(app)
     app.add_middleware(RequestContextMiddleware)
     app.include_router(public_router)
     return app
