@@ -153,3 +153,28 @@ async def test_no_response_carries_the_password_or_its_hash(client: AsyncClient)
         assert "$argon2" not in response.text
         assert GOOD_PASSWORD not in response.text
         assert "password" not in response.text.lower()
+
+
+async def test_a_very_long_password_returns_422_not_500(client: AsyncClient) -> None:
+    # Over passlib's 4,096-byte limit, which once crashed hashing with a 500.
+    response = await register(client, password="a1!" + "q" * 4997)
+
+    assert response.status_code == 422
+    assert error_codes(response) == [("password", "password_too_long")]
+
+
+async def test_a_128_character_password_of_multibyte_characters_is_accepted(
+    client: AsyncClient,
+) -> None:
+    # 128 characters but 509 bytes in UTF-8: the limit counts characters.
+    response = await register(client, password="7" + "🔑" * 127)
+
+    assert response.status_code == 201
+
+
+async def test_a_submitted_role_is_ignored(client: AsyncClient) -> None:
+    # Only the server decides roles; a client asking for admin gets a plain User.
+    response = await register(client, role="admin")
+
+    assert response.status_code == 201
+    assert response.json()["role"] == "user"

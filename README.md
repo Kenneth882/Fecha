@@ -161,7 +161,7 @@ Every 4xx and 5xx response has the same body (`ErrorResponse` in the OpenAPI sch
 ```
 
 - `code` is machine-readable and stable, so clients branch on it rather than on `message`. Codes so far: `validation_error` (422), `email_taken` (409), `internal_error` (500), and the HTTP reason phrase in snake case for the rest (`not_found`, `method_not_allowed`).
-- `details` lists one entry per problem; it's empty unless the error is about specific fields. For a 422, each entry names the `field` and a `code` such as `invalid_timezone`, `password_too_short`, `password_no_digit`, `password_no_special_character` or `password_too_common`.
+- `details` lists one entry per problem; it's empty unless the error is about specific fields. For a 422, each entry names the `field` and a `code` such as `invalid_timezone`, `password_too_short`, `password_too_long`, `password_no_digit`, `password_no_special_character` or `password_too_common`.
 - `request_id` matches the `X-Request-ID` header.
 - Error bodies never echo submitted values, so a rejected password never comes back in a response.
 
@@ -169,7 +169,7 @@ The one exception is the 503 from `/health/ready`, which reports which dependenc
 
 ### Passwords
 
-A new password must be at least 8 characters, with a digit (0–9) and a special character (anything that isn't a letter, digit or whitespace). It also can't be on the bundled list of common passwords, compared ignoring letter case; see `backend/app/data/README.md`. Passwords are stored only as argon2 hashes.
+A new password must be 8–128 characters, with a digit (0–9) and a special character (anything that isn't a letter, digit or whitespace). It also can't be on the bundled list of common passwords, compared ignoring letter case; see `backend/app/data/README.md`. Passwords are stored only as argon2 hashes. The 128-character cap keeps every password under passlib's 4,096-byte hashing limit. A client can't choose its role: registration always creates a `user`.
 
 ### Request IDs and logs
 
