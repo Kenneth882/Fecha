@@ -12,6 +12,7 @@ def test_a_long_password_with_a_digit_and_a_special_character_breaks_no_rule() -
 @pytest.mark.parametrize(
     ("password", "rule"),
     [
+        ("a1!" + "q" * 126, PasswordRule.TOO_LONG),
         ("a1!bcde", PasswordRule.TOO_SHORT),
         ("violet-kettle", PasswordRule.NO_DIGIT),
         ("violetkettle47", PasswordRule.NO_SPECIAL_CHARACTER),
@@ -56,3 +57,22 @@ def test_accented_letters_are_letters_not_special_characters() -> None:
 def test_the_first_broken_rule_is_reported() -> None:
     # Short, with no digit and no special character: length comes first.
     assert broken_password_rule("abc", COMMON) is PasswordRule.TOO_SHORT
+
+
+def test_exactly_128_characters_is_not_too_long() -> None:
+    assert broken_password_rule("a1!" + "q" * 125, COMMON) is None
+
+
+def test_129_characters_is_too_long() -> None:
+    assert broken_password_rule("a1!" + "q" * 126, COMMON) is PasswordRule.TOO_LONG
+
+
+def test_too_long_is_reported_before_every_other_rule() -> None:
+    # No digit and no special character either.
+    assert broken_password_rule("q" * 500, COMMON) is PasswordRule.TOO_LONG
+
+
+def test_too_long_is_reported_before_too_common() -> None:
+    long_and_common = "a1!" + "q" * 200
+
+    assert broken_password_rule(long_and_common, {long_and_common}) is PasswordRule.TOO_LONG
