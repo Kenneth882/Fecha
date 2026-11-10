@@ -25,6 +25,8 @@ class Settings(BaseSettings):
 
     # Required, no default: the app must never sign tokens with a guessable key.
     jwt_secret: SecretStr = Field(min_length=32)
+    # How long an access token stays valid. There are no refresh tokens: log in again.
+    access_token_expire_minutes: int = Field(default=30, gt=0)
 
     # e.g. postgresql+asyncpg://user:password@host:5432/dbname
     database_url: SecretStr

@@ -120,15 +120,15 @@ uv run mypy app tests alembic
 
 ## API overview
 
-All routes live under `/api/v1` and require a JWT by default. The only public routes are `/auth/*`, `/health` (liveness) and `/health/ready` (readiness).
+All routes live under `/api/v1` and require a JWT by default. The only public routes are `/auth/register`, `/auth/login`, `/health` (liveness) and `/health/ready` (readiness). Send the token from `/auth/login` as `Authorization: Bearer <token>`; it lasts `ACCESS_TOKEN_EXPIRE_MINUTES` (default 30) and there are no refresh tokens, so log in again when it expires.
 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/health` | Liveness (public) |
 | GET | `/health/ready` | Readiness: Postgres and Redis (public; added in #3) |
 | POST | `/auth/register` | Create a User; returns the profile (public; added in #6) |
-| POST | `/auth/login` | Return access token |
-| GET | `/auth/me` | Current user |
+| POST | `/auth/login` | Exchange email and password for an access token (public; added in #7) |
+| GET | `/auth/me` | The current User's profile (added in #7) |
 | POST | `/events` | Create event; enqueues plan generation |
 | GET | `/events` | List my events |
 | GET | `/events/{id}` | Event detail + days to event |

@@ -19,6 +19,8 @@ class AppError(Exception):
     status_code: int = status.HTTP_400_BAD_REQUEST
     code: str = "bad_request"
     message: str = "The request could not be processed"
+    # Extra response headers, e.g. WWW-Authenticate on a 401.
+    headers: Mapping[str, str] | None = None
 
     def __init__(self, message: str | None = None) -> None:
         if message is not None:
@@ -95,7 +97,7 @@ async def _http_error(request: Request, exc: Exception) -> JSONResponse:
 
 async def _app_error(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, AppError)
-    return error_response(exc.status_code, exc.code, exc.message)
+    return error_response(exc.status_code, exc.code, exc.message, headers=exc.headers)
 
 
 def internal_error_response() -> JSONResponse:

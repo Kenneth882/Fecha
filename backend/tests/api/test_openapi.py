@@ -1,9 +1,8 @@
 from typing import Any
 
-from fastapi.routing import APIRoute
-
 from app.core.config import Settings
 from app.main import create_app
+from tests.routes import api_routes
 
 HTTP_METHODS = {"get", "put", "post", "delete", "patch", "options", "head", "trace"}
 
@@ -42,12 +41,10 @@ def test_operation_ids_are_unique(settings: Settings) -> None:
 
 def test_every_operation_id_is_tag_then_route_name(settings: Settings) -> None:
     # Catches routes that bypass the rule with an explicit operation_id=.
-    app = create_app(settings)
     offenders = [
         f"{route.path}: {route.unique_id}"
-        for route in app.routes
-        if isinstance(route, APIRoute)
-        and route.include_in_schema
+        for route in api_routes(create_app(settings))
+        if route.include_in_schema
         and route.unique_id != f"{route.tags[0] if route.tags else ''}-{route.name}"
     ]
 
@@ -92,3 +89,25 @@ def test_register_documents_its_409_and_422(settings: Settings) -> None:
     [register] = [op for _, path, op in operations(settings) if path == "/api/v1/auth/register"]
 
     assert {"409", "422"} <= set(register["responses"])
+
+
+def test_login_and_me_operation_ids_are_tag_then_route_name(settings: Settings) -> None:
+    ids = {(method, path): op["operationId"] for method, path, op in operations(settings)}
+
+    assert ids[("POST", "/api/v1/auth/login")] == "auth-login"
+    assert ids[("GET", "/api/v1/auth/me")] == "auth-me"
+
+
+def test_login_documents_401_and_422_and_me_documents_401(settings: Settings) -> None:
+    by_route = {(method, path): op for method, path, op in operations(settings)}
+
+    assert {"401", "422"} <= set(by_route[("POST", "/api/v1/auth/login")]["responses"])
+    assert "401" in by_route[("GET", "/api/v1/auth/me")]["responses"]
+
+
+def test_me_declares_bearer_auth_so_the_generated_client_sends_the_token(
+    settings: Settings,
+) -> None:
+    by_route = {(method, path): op for method, path, op in operations(settings)}
+
+    assert by_route[("GET", "/api/v1/auth/me")]["security"] == [{"HTTPBearer": []}]

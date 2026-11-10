@@ -1,6 +1,5 @@
 import uuid
 from datetime import datetime
-from typing import Any
 
 import pytest
 from httpx import AsyncClient, Response
@@ -8,27 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import verify_password
-
-REGISTER = "/api/v1/auth/register"
-
-# Long, with a digit and a special character, and on no common-password list.
-GOOD_PASSWORD = "violet-kettle-47-harbor"
-
-
-def registration(**overrides: Any) -> dict[str, Any]:
-    """A valid registration body; keyword arguments replace or add fields."""
-    body: dict[str, Any] = {
-        "email": "ana@example.com",
-        "password": GOOD_PASSWORD,
-        "timezone": "Europe/Madrid",
-        "native_language": "en",
-    }
-    body.update(overrides)
-    return body
-
-
-async def register(client: AsyncClient, **overrides: Any) -> Response:
-    return await client.post(REGISTER, json=registration(**overrides))
+from tests.auth import GOOD_PASSWORD, REGISTER, register, registration
 
 
 async def test_registering_returns_201_with_the_user_profile(client: AsyncClient) -> None:

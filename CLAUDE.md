@@ -75,7 +75,7 @@ Always use `uv run` / `uv add` — never `pip install`.
 
 - Full type hints everywhere; code must pass `mypy`.
 - Async all the way down in the API (async SQLAlchemy sessions, async HTTP clients).
-- All routes under `/api/v1`, protected by default: new routes go on the protected router. The only public exceptions are `/auth/*`, `/health` and `/health/ready`, on `public_router`. Admin-only routes (e.g. `/admin/metrics`) check role.
+- All routes under `/api/v1`, protected by default: new routes go on the protected router. The only public exceptions are `/auth/register`, `/auth/login`, `/health` and `/health/ready`, on `public_router` (`tests/api/test_protected_by_default.py` enforces this). Admin-only routes (e.g. `/admin/metrics`) use `Depends(require_admin)` from `core/deps.py`. API tests get a logged-in User from the `user` fixture (`tests/auth.py`).
 - Every route has exactly one tag; OpenAPI operation IDs are `{tag}-{route name}` (e.g. `health-liveness`) and feed the generated TS client.
 - Structured JSON logging with a request ID per call.
 - Security: hashed passwords, short-lived JWTs, no secrets in the repo.
