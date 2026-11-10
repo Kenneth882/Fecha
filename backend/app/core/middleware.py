@@ -4,9 +4,9 @@ import time
 import uuid
 
 from starlette.datastructures import Headers, MutableHeaders
-from starlette.responses import PlainTextResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from app.core.errors import internal_error_response
 from app.core.logging import request_id_var
 
 REQUEST_ID_HEADER = "X-Request-ID"
@@ -61,9 +61,7 @@ class RequestContextMiddleware:
             # wouldn't carry the ID. Send the 500 here instead; it sees the
             # response as started and only re-raises.
             if status is None:
-                await PlainTextResponse("Internal Server Error", status_code=500)(
-                    scope, receive, send_with_id
-                )
+                await internal_error_response()(scope, receive, send_with_id)
             self._log(scope, status, start, error=True)
             raise
         else:

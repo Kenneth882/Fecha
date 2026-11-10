@@ -126,7 +126,7 @@ All routes live under `/api/v1` and require a JWT by default. The only public ro
 |---|---|---|
 | GET | `/health` | Liveness (public) |
 | GET | `/health/ready` | Readiness: Postgres and Redis (public; added in #3) |
-| POST | `/auth/register` | Create account |
+| POST | `/auth/register` | Create a User; returns the profile (public; added in #6) |
 | POST | `/auth/login` | Return access token |
 | GET | `/auth/me` | Current user |
 | POST | `/events` | Create event; enqueues plan generation |
@@ -143,6 +143,34 @@ All routes live under `/api/v1` and require a JWT by default. The only public ro
 | GET | `/events/{id}/readiness` | Readiness report + daily trend |
 | GET | `/admin/metrics` | LLM cost and voice latency (admin only) |
 
+### Errors
+
+Every 4xx and 5xx response has the same body (`ErrorResponse` in the OpenAPI schema):
+
+```json
+{
+  "error": {
+    "code": "validation_error",
+    "message": "The request is invalid",
+    "details": [
+      {"field": "password", "code": "password_no_digit", "message": "Password must contain a digit (0-9)"}
+    ],
+    "request_id": "3f2a9c..."
+  }
+}
+```
+
+- `code` is machine-readable and stable, so clients branch on it rather than on `message`. Codes so far: `validation_error` (422), `email_taken` (409), `internal_error` (500), and the HTTP reason phrase in snake case for the rest (`not_found`, `method_not_allowed`).
+- `details` lists one entry per problem; it's empty unless the error is about specific fields. For a 422, each entry names the `field` and a `code` such as `invalid_timezone`, `password_too_short`, `password_no_digit`, `password_no_special_character` or `password_too_common`.
+- `request_id` matches the `X-Request-ID` header.
+- Error bodies never echo submitted values, so a rejected password never comes back in a response.
+
+The one exception is the 503 from `/health/ready`, which reports which dependency is down.
+
+### Passwords
+
+A new password must be at least 8 characters, with a digit (0–9) and a special character (anything that isn't a letter, digit or whitespace). It also can't be on the bundled list of common passwords, compared ignoring letter case; see `backend/app/data/README.md`. Passwords are stored only as argon2 hashes.
+
 ### Request IDs and logs
 
 Every HTTP response carries an `X-Request-ID` header. If the request sent one, it's echoed back, but only if it is 1–128 characters of `A–Z a–z 0–9 . _ -`. Anything else is replaced with a generated ID, since the ID is written to logs. Crashed requests get their 500 with the header too.
@@ -155,7 +183,7 @@ The API logs JSON lines to stdout. Each request writes one access line (`method`
 
 | Table | Key columns | Notes |
 |---|---|---|
-| User | id, email, password_hash, native_language, created_at | |
+| User | id, email, password_hash, native_language, timezone, role, created_at | email stored lowercased and unique; password_hash is argon2; role = user, admin |
 | Event | id, user_id, type, target_language, event_date, level, goals | type = interview, relocation, speech |
 | Plan | id, event_id, version, status, generated_at | New version on every re-plan |
 | Milestone | id, plan_id, title, target_date, order | e.g. "Utilities" |
