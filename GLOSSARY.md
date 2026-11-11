@@ -39,7 +39,7 @@ The local calendar date of the Event, in the User's timezone. Nothing is schedul
 _Avoid_: Deadline, due date
 
 **Level**:
-The User's proficiency in the target language, on a trimmed CEFR scale: A1, A2, B1, B2, C1.
+The User's proficiency in an Event's target language, on a trimmed CEFR scale: A1, A2, B1, B2, C1. It belongs to the Event, so the same User can have different Levels for different Events.
 _Avoid_: Skill, proficiency score
 
 **Native Language**:
@@ -52,7 +52,7 @@ An optional short quiz during onboarding that sets the User's Level instead of a
 ### Situations
 
 **Scenario**:
-A reusable real-world situation within an Event Type, such as "Apartment check-in" or "Salary negotiation". It has a fixed difficulty and is the same in every language. Vocab Items and roleplay prompts belong to a Scenario, and progress is measured per Scenario.
+A reusable real-world situation within an Event Type, such as "Apartment check-in" or "Salary negotiation". It has a fixed difficulty, a fixed priority within its Event Type (how essential it is when a Plan can't cover every Scenario), and is the same in every language. Vocab Items and roleplay prompts belong to a Scenario, and progress is measured per Scenario.
 _Avoid_: Topic, situation, unit
 
 **Scenario Catalog**:
