@@ -11,8 +11,10 @@ from zoneinfo import ZoneInfo
 def local_today(moment: datetime, timezone: str) -> date:
     """The date on the wall clock in `timezone` (an IANA name) at `moment`.
 
-    Plan Days, Event states and the Event Day limits are all counted in this
-    local date, not the UTC one. `moment` must be timezone-aware.
+    Plan Days, the Event Day (nothing is scheduled on or after it) and whether an
+    Event is Active or Past are all judged by this local date, not the UTC one.
+    `moment` must be timezone-aware; `timezone` must be a valid IANA name, as
+    validated when the User registers.
     """
     if moment.tzinfo is None:
         raise ValueError("moment must be timezone-aware")
