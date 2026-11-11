@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from datetime import UTC, datetime
 from typing import Annotated, cast
 
 from fastapi import Depends, Request, status
@@ -26,6 +27,17 @@ async def get_db(request: Request) -> AsyncIterator[AsyncSession]:
     factory = cast(async_sessionmaker[AsyncSession], request.app.state.session_factory)
     async with factory() as session:
         yield session
+
+
+def get_now() -> datetime:
+    """The current moment, as a timezone-aware UTC datetime.
+
+    The API's only source of "now": routes take it from here and pass it to
+    services as plain data, rather than calling `datetime.now()`, so tests can pin it with
+    `app.dependency_overrides[get_now] = lambda: fixed_moment`. Turn it into a
+    User's date with `services.local_time.local_today`.
+    """
+    return datetime.now(UTC)
 
 
 def get_redis(request: Request) -> Redis:

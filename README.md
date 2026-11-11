@@ -244,13 +244,14 @@ backend/
 ├── Dockerfile             # one image for the api and worker services
 ├── app/
 │   ├── main.py            # app factory, lifespan, middleware, routers
-│   ├── core/              # config (pydantic-settings), deps, JSON logging, middleware
+│   ├── core/              # config (pydantic-settings), deps (incl. the clock), JSON logging, middleware
 │   ├── db/                # async engine + sessionmaker, Redis client
 │   ├── models/            # SQLAlchemy tables
 │   ├── schemas/           # Pydantic request/response models
 │   ├── api/v1/            # health; auth, events, plans, practice, roleplay (planned)
 │   ├── services/
 │   │   ├── health.py      # readiness checks
+│   │   ├── local_time.py  # UTC moment + IANA timezone → the User's local today, pure
 │   │   ├── planner.py     # backward planning algorithm, pure Python (planned)
 │   │   ├── srs.py         # deadline-compressed scheduler, pure Python (planned)
 │   │   ├── llm.py         # plan/scenario generation (planned)
@@ -259,7 +260,7 @@ backend/
 │   └── workers/tasks.py   # arq jobs and WorkerSettings; plan + report jobs (planned)
 ├── alembic/
 ├── tests/
-│   ├── unit/              # srs, planner, scoring (no DB)
+│   ├── unit/              # pure logic: local time, srs, planner, scoring (no DB)
 │   ├── api/               # endpoint tests with dependency overrides
 │   ├── db/                # transactional test session
 │   └── workers/           # arq worker round-trip against test Redis
@@ -273,7 +274,7 @@ web/                       # Next.js + TypeScript PWA (planned)
 
 Part-time build (~10–15 h/week). Each week ends with something running and tested.
 
-- [ ] **Week 1 — Foundation:** uv/ruff/mypy/pre-commit, Docker Compose, config + async DB + Alembic, User + JWT auth, GitHub Actions CI
+- [x] **Week 1 — Foundation:** uv/ruff/mypy/pre-commit, Docker Compose, config + async DB + Alembic, User + JWT auth, GitHub Actions CI
 - [ ] **Week 2 — Events & template planner:** Event/Plan/Milestone/Task models, Event CRUD, template-based `planner.py`, `GET /events/{id}/today`
 - [ ] **Week 3 — Spaced repetition:** VocabItem/ReviewState, `srs.py` + property tests, review endpoints, Spanish seed vocab, Next.js onboarding + daily practice
 - [ ] **Week 4 — LLM generation:** `llm.py` with instructor, arq worker, retries/fallback/Redis cache, fake-LLM test override
