@@ -111,3 +111,17 @@ def test_me_declares_bearer_auth_so_the_generated_client_sends_the_token(
     by_route = {(method, path): op for method, path, op in operations(settings)}
 
     assert by_route[("GET", "/api/v1/auth/me")]["security"] == [{"HTTPBearer": []}]
+
+
+def test_event_operation_ids_are_tag_then_route_name(settings: Settings) -> None:
+    ids = {(method, path): op["operationId"] for method, path, op in operations(settings)}
+
+    assert ids[("POST", "/api/v1/events")] == "events-create"
+    assert ids[("GET", "/api/v1/events/{event_id}")] == "events-get"
+
+
+def test_event_routes_document_their_errors(settings: Settings) -> None:
+    by_route = {(method, path): op for method, path, op in operations(settings)}
+
+    assert {"401", "409", "422"} <= set(by_route[("POST", "/api/v1/events")]["responses"])
+    assert {"401", "404", "422"} <= set(by_route[("GET", "/api/v1/events/{event_id}")]["responses"])

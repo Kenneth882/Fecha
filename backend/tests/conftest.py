@@ -1,4 +1,6 @@
 from collections.abc import AsyncIterator
+from dataclasses import dataclass
+from datetime import UTC, datetime
 
 import pytest
 from fastapi import FastAPI
@@ -8,7 +10,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 from app.core.config import ROOT_ENV_FILE, Settings
-from app.core.deps import get_db
+from app.core.deps import get_db, get_now
 from app.main import create_app
 from tests.auth import RegisteredUser, register_and_log_in
 from tests.clients import running_client
@@ -69,6 +71,25 @@ def app(settings: Settings, db_session: AsyncSession) -> FastAPI:
 
     app.dependency_overrides[get_db] = override_get_db
     return app
+
+
+@dataclass
+class Clock:
+    """The moment `get_now` returns. Set `now` to move time on mid-test."""
+
+    now: datetime
+
+
+# 13:00 in Madrid, the `user` fixture's timezone: their local today is 2026-11-10.
+FIXED_NOW = datetime(2026, 11, 10, 12, 0, tzinfo=UTC)
+
+
+@pytest.fixture
+def clock(app: FastAPI) -> Clock:
+    """Pin the app's clock at FIXED_NOW."""
+    clock = Clock(FIXED_NOW)
+    app.dependency_overrides[get_now] = lambda: clock.now
+    return clock
 
 
 @pytest.fixture

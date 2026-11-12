@@ -1,0 +1,167 @@
+"""Creating and reading a User's Events, each with its Plan versions.
+
+"Now" always comes in as a parameter, from the `get_now` clock dependency, and is turned
+into the User's local today here. Event states are derived, never stored (ADR 0005).
+"""
+
+import uuid
+from datetime import date, datetime
+from typing import cast
+
+from fastapi import status
+from sqlalchemy import exists, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.errors import AppError
+from app.models.event import Event, Milestone, Plan, Task
+from app.models.user import User
+from app.schemas.event import EventCreate, EventDetail, EventState, TargetLanguage
+from app.services.local_time import local_today
+from app.services.planner import MIN_PLAN_DAYS, DailyBudget, DraftPlan, build_plan
+
+# A cram planner, not a general course.
+MAX_DAYS_AHEAD = 60
+
+
+class EventDayOutOfRangeError(AppError):
+    status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
+    code = "event_day_out_of_range"
+    message = (
+        f"The Event Day must be {MIN_PLAN_DAYS} to {MAX_DAYS_AHEAD} days after your local today"
+    )
+
+
+class ActiveEventExistsError(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "active_event_exists"
+    message = "You already have an Active Event: abandon it before creating another"
+
+
+class EventNotFoundError(AppError):
+    # The same for another User's Event as for an unknown ID, so IDs can't be probed.
+    status_code = status.HTTP_404_NOT_FOUND
+    code = "event_not_found"
+    message = "No such Event"
+
+
+async def create_event(
+    session: AsyncSession, user: User, data: EventCreate, now: datetime
+) -> EventDetail:
+    """Create and commit an Event with its first Plan, built by the planner from the
+    User's local today (ADR 0004).
+
+    Raises EventDayOutOfRangeError unless the Event Day is 3 to 60 of the User's local
+    days after their local today, and ActiveEventExistsError if the User already
+    has an Active Event (ADR 0001). The User's row stays locked from that check until
+    the commit, so two simultaneous creates can't both pass it (ADR 0005).
+    """
+    today = local_today(now, user.timezone)
+    if not MIN_PLAN_DAYS <= (data.event_day - today).days <= MAX_DAYS_AHEAD:
+        raise EventDayOutOfRangeError
+    await session.execute(select(User.id).where(User.id == user.id).with_for_update())
+    if await _has_active_event(session, user, today):
+        raise ActiveEventExistsError
+    draft = build_plan(
+        event_type=data.type,
+        level=data.level,
+        daily_budget=data.daily_budget,
+        start_date=today,
+        event_day=data.event_day,
+    )
+    event = Event(
+        user_id=user.id,
+        type=data.type,
+        target_language=data.target_language,
+        event_day=data.event_day,
+        level=data.level,
+        daily_budget=data.daily_budget,
+        goals=data.goals,
+        created_at=now,
+    )
+    plan = _plan_rows(event, draft, version=1, generated_at=now)
+    session.add_all([event, plan])
+    await session.commit()
+    return _detail(event, plan.version, today)
+
+
+async def get_event(
+    session: AsyncSession, user: User, event_id: uuid.UUID, now: datetime
+) -> EventDetail:
+    """One of the User's Events, on their local today.
+
+    Raises EventNotFoundError if there's no such Event or it belongs to another User.
+    """
+    current_version = (
+        select(func.max(Plan.version)).where(Plan.event_id == Event.id).scalar_subquery()
+    )
+    row = (
+        await session.execute(
+            select(Event, current_version).where(Event.id == event_id, Event.user_id == user.id)
+        )
+    ).one_or_none()
+    if row is None:
+        raise EventNotFoundError
+    event, version = row
+    return _detail(event, version, local_today(now, user.timezone))
+
+
+async def _has_active_event(session: AsyncSession, user: User, today: date) -> bool:
+    """Whether one of the User's Events is `active` or `event_day` on `today`: the
+    database form of `event_state`."""
+    active = exists().where(
+        Event.user_id == user.id, Event.abandoned_at.is_(None), Event.event_day >= today
+    )
+    return bool(await session.scalar(select(active)))
+
+
+def _plan_rows(event: Event, draft: DraftPlan, *, version: int, generated_at: datetime) -> Plan:
+    """The rows for storing `draft` as `event`'s Plan `version`."""
+    return Plan(
+        event=event,
+        version=version,
+        generated_at=generated_at,
+        milestones=[
+            Milestone(
+                scenario_slug=m.scenario_slug,
+                position=m.position,
+                target_date=m.target_date,
+                tasks=[
+                    Task(
+                        date=t.date,
+                        kind=t.kind,
+                        position=t.position,
+                        estimated_minutes=t.estimated_minutes,
+                    )
+                    for t in m.tasks
+                ],
+            )
+            for m in draft.milestones
+        ],
+    )
+
+
+def event_state(event: Event, today: date) -> EventState:
+    """`past` once abandoned or after the Event Day, `event_day` on it, else `active`."""
+    if event.abandoned_at is not None or today > event.event_day:
+        return EventState.PAST
+    if today == event.event_day:
+        return EventState.EVENT_DAY
+    return EventState.ACTIVE
+
+
+def _detail(event: Event, plan_version: int, today: date) -> EventDetail:
+    return EventDetail(
+        id=event.id,
+        type=event.type,
+        # The columns hold only what EventCreate accepted.
+        target_language=cast(TargetLanguage, event.target_language),
+        event_day=event.event_day,
+        level=event.level,
+        daily_budget=cast(DailyBudget, event.daily_budget),
+        goals=event.goals,
+        abandoned_at=event.abandoned_at,
+        created_at=event.created_at,
+        state=event_state(event, today),
+        days_until_event_day=max((event.event_day - today).days, 0),
+        current_plan_version=plan_version,
+    )

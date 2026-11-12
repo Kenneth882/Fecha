@@ -26,6 +26,7 @@ dev = [
     "pre-commit>=4.7.0",
     "pytest>=9.2.0",
     "pytest-asyncio>=1.4.1.post1",
+    "pytest-cov>=7.1.0",
     "ruff>=0.17.4",
     "types-passlib>=1.7.7.20260211",
 ]
@@ -60,3 +61,8 @@ filterwarnings = [
     "ignore:'crypt' is deprecated:DeprecationWarning:passlib",
     "ignore:Accessing argon2.__version__ is deprecated:DeprecationWarning:passlib",
 ]
+
+[tool.coverage.run]
+# SQLAlchemy's async layer runs code after each `await session...` in greenlets, which
+# coverage only traces when told to.
+concurrency = ["greenlet", "thread"]
