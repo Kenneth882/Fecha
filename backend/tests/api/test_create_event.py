@@ -1,8 +1,10 @@
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from httpx import AsyncClient, Response
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from tests.auth import RegisteredUser, register_and_log_in
 from tests.conftest import FIXED_NOW, Clock
@@ -133,3 +135,21 @@ async def test_late_at_night_local_today_is_still_plan_day_1(
     response = await create_event(client, traveller, event_day="2026-11-22")
 
     assert response.json()["days_until_event_day"] == 12
+
+
+async def test_creating_an_event_stores_plan_version_1_with_every_plan_day_filled(
+    client: AsyncClient, user: RegisteredUser, clock: Clock, db_session: AsyncSession
+) -> None:
+    await create_event(client, user, event_day="2026-11-22", daily_budget=30)
+
+    # A direct DB read: the endpoints that show the Plan come in later tickets.
+    [version] = (await db_session.scalars(text("SELECT version FROM plans"))).all()
+    tasks_per_date = (
+        await db_session.execute(text("SELECT date, count(*) FROM tasks GROUP BY date"))
+    ).all()
+
+    assert version == 1
+    # Plan Days 2026-11-10 to 2026-11-21, 4 Tasks each at 30 minutes.
+    assert sorted(tasks_per_date) == [
+        (date(2026, 11, 10) + timedelta(days=n), 4) for n in range(12)
+    ]

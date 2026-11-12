@@ -23,9 +23,9 @@ async def test_every_stored_milestone_names_a_scenario_in_the_catalog(
     client: AsyncClient, db_session: AsyncSession, clock: Clock
 ) -> None:
     for event_type in EventType:
-        planner = await register_and_log_in(client, email=f"{event_type}@example.com")
+        event_user = await register_and_log_in(client, email=f"{event_type}@example.com")
         # 60 days out: the longest Plan, which covers every Scenario of the type.
-        response = await create_event(client, planner, type=event_type, event_day="2027-01-09")
+        response = await create_event(client, event_user, type=event_type, event_day="2027-01-09")
         assert response.status_code == 201, response.text
 
     slugs = await stored_slugs(db_session)
