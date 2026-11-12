@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_current_user, get_db, get_now
 from app.core.errors import error_responses
 from app.models.user import User
-from app.schemas.event import EventCreate, EventDetail
+from app.schemas.event import EventCreate, EventDetail, EventSummary
 from app.services import events
 
 router = APIRouter(
@@ -31,6 +31,16 @@ async def create(
     return await events.create_event(session, user, data, now)
 
 
+@router.get("", name="list")
+async def list_(
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+    now: Annotated[datetime, Depends(get_now)],
+) -> list[EventSummary]:
+    """All the User's Events, newest first, each with its state on their local today."""
+    return await events.list_events(session, user, now)
+
+
 @router.get("/{event_id}", responses=error_responses(status.HTTP_404_NOT_FOUND))
 async def get(
     event_id: uuid.UUID,
@@ -40,3 +50,17 @@ async def get(
 ) -> EventDetail:
     """One of the User's Events, with its state, countdown and Current Plan version."""
     return await events.get_event(session, user, event_id, now)
+
+
+@router.post(
+    "/{event_id}/abandon",
+    responses=error_responses(status.HTTP_404_NOT_FOUND, status.HTTP_409_CONFLICT),
+)
+async def abandon(
+    event_id: uuid.UUID,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+    now: Annotated[datetime, Depends(get_now)],
+) -> EventDetail:
+    """Abandon the User's Active Event so they can create another. It stays readable."""
+    return await events.abandon_event(session, user, event_id, now)
