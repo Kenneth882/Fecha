@@ -1,5 +1,6 @@
 """Helpers for API tests that create Events."""
 
+import uuid
 from typing import Any
 
 from httpx import AsyncClient, Response
@@ -26,3 +27,7 @@ def event_body(**overrides: Any) -> dict[str, Any]:
 
 async def create_event(client: AsyncClient, user: RegisteredUser, **overrides: Any) -> Response:
     return await client.post(EVENTS, json=event_body(**overrides), headers=user.headers)
+
+
+async def abandon(client: AsyncClient, user: RegisteredUser, event_id: uuid.UUID | str) -> Response:
+    return await client.post(f"{EVENTS}/{event_id}/abandon", headers=user.headers)

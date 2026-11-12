@@ -35,19 +35,24 @@ class EventCreate(BaseModel):
     goals: Annotated[str, Field(max_length=500)] | None = None
 
 
-class EventDetail(BaseModel):
-    """An Event with its state, countdown and Current Plan version, on local today."""
+class EventSummary(BaseModel):
+    """An Event as listed: what it is, when, and its state on local today."""
 
     id: uuid.UUID
     type: EventType
     target_language: TargetLanguage
     event_day: date
-    level: Level
-    daily_budget: DailyBudget
-    goals: str | None
     abandoned_at: datetime | None
     created_at: datetime
     state: EventState
     # 0 on the Event Day and afterwards.
     days_until_event_day: int
+
+
+class EventDetail(EventSummary):
+    """An Event with its state, countdown and Current Plan version, on local today."""
+
+    level: Level
+    daily_budget: DailyBudget
+    goals: str | None
     current_plan_version: int

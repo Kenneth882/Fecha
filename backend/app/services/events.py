@@ -15,7 +15,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import AppError
 from app.models.event import Event, Milestone, Plan, Task
 from app.models.user import User
-from app.schemas.event import EventCreate, EventDetail, EventState, TargetLanguage
+from app.schemas.event import (
+    EventCreate,
+    EventDetail,
+    EventState,
+    EventSummary,
+    TargetLanguage,
+)
 from app.services.local_time import local_today
 from app.services.planner import MIN_PLAN_DAYS, DailyBudget, DraftPlan, build_plan
 
@@ -35,6 +41,12 @@ class ActiveEventExistsError(AppError):
     status_code = status.HTTP_409_CONFLICT
     code = "active_event_exists"
     message = "You already have an Active Event: abandon it before creating another"
+
+
+class EventAlreadyPastError(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "event_already_past"
+    message = "This Event is already past: it was abandoned or its Event Day has gone by"
 
 
 class EventNotFoundError(AppError):
@@ -91,18 +103,57 @@ async def get_event(
 
     Raises EventNotFoundError if there's no such Event or it belongs to another User.
     """
+    event, version = await _own_event(session, user, event_id)
+    return _detail(event, version, local_today(now, user.timezone))
+
+
+async def abandon_event(
+    session: AsyncSession, user: User, event_id: uuid.UUID, now: datetime
+) -> EventDetail:
+    """Abandon the User's Active Event at `now`, so they can create another (ADR 0001).
+
+    Raises EventNotFoundError as `get_event` does, and EventAlreadyPastError if the
+    Event was already abandoned or its Event Day has gone by. The Event's row is
+    locked from the check until the commit, so it's abandoned only once.
+    """
+    event, version = await _own_event(session, user, event_id, for_update=True)
+    today = local_today(now, user.timezone)
+    if event_state(event, today) is EventState.PAST:
+        raise EventAlreadyPastError
+    event.abandoned_at = now
+    await session.commit()
+    return _detail(event, version, today)
+
+
+async def list_events(session: AsyncSession, user: User, now: datetime) -> list[EventSummary]:
+    """All the User's Events, newest first, each with its state on their local today."""
+    today = local_today(now, user.timezone)
+    rows = await session.scalars(
+        select(Event)
+        .where(Event.user_id == user.id)
+        .order_by(Event.created_at.desc(), Event.id.desc())
+    )
+    return [_summary(event, today) for event in rows]
+
+
+async def _own_event(
+    session: AsyncSession, user: User, event_id: uuid.UUID, *, for_update: bool = False
+) -> tuple[Event, int]:
+    """One of the User's Events and its Current Plan version.
+
+    Raises EventNotFoundError if there's no such Event or it belongs to another User.
+    """
     current_version = (
         select(func.max(Plan.version)).where(Plan.event_id == Event.id).scalar_subquery()
     )
-    row = (
-        await session.execute(
-            select(Event, current_version).where(Event.id == event_id, Event.user_id == user.id)
-        )
-    ).one_or_none()
+    query = select(Event, current_version).where(Event.id == event_id, Event.user_id == user.id)
+    if for_update:
+        query = query.with_for_update(of=Event)
+    row = (await session.execute(query)).one_or_none()
     if row is None:
         raise EventNotFoundError
     event, version = row
-    return _detail(event, version, local_today(now, user.timezone))
+    return event, version
 
 
 async def _has_active_event(session: AsyncSession, user: User, today: date) -> bool:
@@ -149,19 +200,26 @@ def event_state(event: Event, today: date) -> EventState:
     return EventState.ACTIVE
 
 
-def _detail(event: Event, plan_version: int, today: date) -> EventDetail:
-    return EventDetail(
+def _summary(event: Event, today: date) -> EventSummary:
+    return EventSummary(
         id=event.id,
         type=event.type,
         # The columns hold only what EventCreate accepted.
         target_language=cast(TargetLanguage, event.target_language),
         event_day=event.event_day,
-        level=event.level,
-        daily_budget=cast(DailyBudget, event.daily_budget),
-        goals=event.goals,
         abandoned_at=event.abandoned_at,
         created_at=event.created_at,
         state=event_state(event, today),
         days_until_event_day=max((event.event_day - today).days, 0),
+    )
+
+
+def _detail(event: Event, plan_version: int, today: date) -> EventDetail:
+    return EventDetail(
+        **_summary(event, today).model_dump(),
+        level=event.level,
+        # The column holds only what EventCreate accepted.
+        daily_budget=cast(DailyBudget, event.daily_budget),
+        goals=event.goals,
         current_plan_version=plan_version,
     )

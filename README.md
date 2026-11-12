@@ -130,11 +130,11 @@ All routes live under `/api/v1` and require a JWT by default. The only public ro
 | POST | `/auth/login` | Exchange email and password for an access token (public; added in #7) |
 | GET | `/auth/me` | The current User's profile (added in #7) |
 | POST | `/events` | Create the User's Event and build its first Plan in the same transaction; 409 if they already have an Active Event (added in #21) |
-| GET | `/events` | List my Events, newest first, each with its state (planned) |
+| GET | `/events` | List my Events, newest first, each with its state (`active`, `event_day` or `past`; abandoned Events are `past`) (added in #22) |
 | GET | `/events/{id}` | Event detail: state (`active`, `event_day` or `past`), days until the Event Day, Current Plan version; 404 for another User's Event (added in #21) |
 | GET | `/events/{id}/plan` | The Current Plan: Milestones in order, Tasks grouped by Plan Day (planned) |
 | GET | `/events/{id}/today` | Today's Tasks, as "Day N of M" (planned) |
-| POST | `/events/{id}/abandon` | Abandon the Active Event, so another can be created; 409 if it's already past (planned) |
+| POST | `/events/{id}/abandon` | Abandon the Active Event, so another can be created; it stays readable as `past`. 409 if it's already past, 404 for another User's Event (added in #22) |
 | POST | `/events/{id}/replan` | Re-plan after Missed Tasks (planned) |
 | GET | `/reviews/due` | SRS items due now |
 | POST | `/reviews/{item_id}` | Submit a review grade (0–5) |

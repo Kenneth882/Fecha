@@ -23,7 +23,7 @@ An Event that is over, either because its Event Day has ended or because it was 
 _Avoid_: Archived event, finished event, closed event
 
 **Abandoned Event**:
-A Past Event the User ended early, before its Event Day, to start a different Event.
+A Past Event the User ended early, before its Event Day was over, to start a different Event. An Event can be abandoned on its Event Day, since it's still the Active Event then.
 _Avoid_: Cancelled event, deleted event
 
 **Daily Budget**:
