@@ -129,13 +129,13 @@ All routes live under `/api/v1` and require a JWT by default. The only public ro
 | POST | `/auth/register` | Create a User; returns the profile (public; added in #6) |
 | POST | `/auth/login` | Exchange email and password for an access token (public; added in #7) |
 | GET | `/auth/me` | The current User's profile (added in #7) |
-| POST | `/events` | Create event; enqueues plan generation |
-| GET | `/events` | List my events |
-| GET | `/events/{id}` | Event detail + days to event |
-| GET | `/events/{id}/plan` | Full plan with milestones |
-| POST | `/events/{id}/replan` | Rebalance after missed days |
-| GET | `/events/{id}/today` | Today's tasks |
-| POST | `/tasks/{id}/complete` | Mark a task done |
+| POST | `/events` | Create the User's Event and build its first Plan in the same transaction; 409 if they already have an Active Event (added in #21) |
+| GET | `/events` | List my Events, newest first, each with its state |
+| GET | `/events/{id}` | Event detail: state (`active`, `event_day` or `past`), days until the Event Day, Current Plan version; 404 for another User's Event (added in #21) |
+| GET | `/events/{id}/plan` | The Current Plan: Milestones in order, Tasks grouped by Plan Day |
+| GET | `/events/{id}/today` | Today's Tasks, as "Day N of M" |
+| POST | `/events/{id}/abandon` | Abandon the Active Event, so another can be created; 409 if it's already past |
+| POST | `/events/{id}/replan` | Re-plan after Missed Tasks |
 | GET | `/reviews/due` | SRS items due now |
 | POST | `/reviews/{item_id}` | Submit a review grade (0–5) |
 | WS | `/roleplay/{milestone_id}` | Stream a voice roleplay session |
@@ -184,10 +184,10 @@ The API logs JSON lines to stdout. Each request writes one access line (`method`
 | Table | Key columns | Notes |
 |---|---|---|
 | User | id, email, password_hash, native_language, timezone, role, created_at | email stored lowercased and unique; password_hash is argon2; role = user, admin |
-| Event | id, user_id, type, target_language, event_date, level, goals | type = interview, relocation, speech |
-| Plan | id, event_id, version, status, generated_at | New version on every re-plan |
-| Milestone | id, plan_id, title, target_date, order | e.g. "Utilities" |
-| Task | id, milestone_id, day, kind, payload (JSON), completed_at | kind = vocab, listen, speak |
+| Event | id, user_id, type, target_language, event_day, level, daily_budget, goals, abandoned_at, created_at | type = interview, relocation, speech; level = A1–C1; daily_budget = 15, 30, 45 minutes. No status column: active / event day / past is derived from `abandoned_at`, `event_day` and the User's local today (ADR 0005) |
+| Plan | id, event_id, version, generated_at | (event_id, version) unique; the Current Plan is the highest version, and re-planning adds a version |
+| Milestone | id, plan_id, scenario_slug, position, target_date | A Scenario from the in-code Scenario Catalog, by slug (no foreign key; a test checks stored slugs); title comes from the catalog |
+| Task | id, milestone_id, date, kind, position, estimated_minutes, completed_at | kind = vocab, listen, speak; `date` is the Plan Day; `payload` arrives with content (Weeks 3–4) |
 | VocabItem | id, phrase, translation, audio_url, scenario_tag, language | Shared across users, cached |
 | ReviewState | user_id, vocab_item_id, ease, interval_days, due_at, lapses | One row per user per item |
 | RoleplaySession | id, milestone_id, transcript (JSON), audio_url, scores, duration_sec, cost_usd | |
@@ -248,11 +248,13 @@ backend/
 │   ├── db/                # async engine + sessionmaker, Redis client
 │   ├── models/            # SQLAlchemy tables
 │   ├── schemas/           # Pydantic request/response models
-│   ├── api/v1/            # health; auth, events, plans, practice, roleplay (planned)
+│   ├── api/v1/            # health, auth, events; practice, roleplay (planned)
 │   ├── services/
 │   │   ├── health.py      # readiness checks
+│   │   ├── catalog.py     # the Scenario Catalog: fixed Scenarios per Event Type, pure
+│   │   ├── events.py      # create/read Events and their Plans; one Active Event per User
 │   │   ├── local_time.py  # UTC moment + IANA timezone → the User's local today, pure
-│   │   ├── planner.py     # backward planning algorithm, pure Python (planned)
+│   │   ├── planner.py     # backward planning algorithm, pure Python
 │   │   ├── srs.py         # deadline-compressed scheduler, pure Python (planned)
 │   │   ├── llm.py         # plan/scenario generation (planned)
 │   │   ├── voice.py       # STT/TTS pipeline (planned)
