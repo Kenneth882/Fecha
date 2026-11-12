@@ -37,10 +37,10 @@ class Scenario(BaseModel):
 
 
 def _scenario(
-    event_type: EventType, name: str, title: str, difficulty: int, priority: int
+    event_type: EventType, slug_suffix: str, title: str, difficulty: int, priority: int
 ) -> Scenario:
     return Scenario(
-        slug=f"{event_type}.{name}",
+        slug=f"{event_type}.{slug_suffix}",
         event_type=event_type,
         title=title,
         difficulty=difficulty,

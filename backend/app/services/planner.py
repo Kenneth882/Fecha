@@ -29,12 +29,16 @@ class Level(StrEnum):
 
 
 class TaskKind(StrEnum):
+    """What a Task asks of the User: learn Vocab Items, listen to a dialogue, or speak."""
+
     VOCAB = "vocab"
     LISTEN = "listen"
     SPEAK = "speak"
 
 
 class DraftTask(BaseModel):
+    """A planned Task, not yet stored. `position` orders it within its Plan Day, from 1."""
+
     model_config = ConfigDict(frozen=True)
 
     date: date
@@ -44,6 +48,8 @@ class DraftTask(BaseModel):
 
 
 class DraftMilestone(BaseModel):
+    """A chosen Scenario with its place in the order (from 1), target date and Tasks."""
+
     model_config = ConfigDict(frozen=True)
 
     scenario_slug: str
@@ -53,6 +59,8 @@ class DraftMilestone(BaseModel):
 
 
 class DraftPlan(BaseModel):
+    """A Plan before it is stored: its Milestones in order, easy to hard."""
+
     model_config = ConfigDict(frozen=True)
 
     milestones: tuple[DraftMilestone, ...]
@@ -60,10 +68,12 @@ class DraftPlan(BaseModel):
 
 FINAL_WINDOW_DAYS = 2
 MIN_PLAN_DAYS = 3
+# K, the number of Scenarios, is about one per this many ordinary days.
+ORDINARY_DAYS_PER_SCENARIO = 2.5
 
 # Minutes of each Daily Budget kept back for the Review Queue, which runs alongside the
 # Tasks (Week 3). The Tasks share whatever is left.
-_REVIEW_ALLOWANCE: dict[int, int] = {15: 4, 30: 8, 45: 12}
+_REVIEW_ALLOWANCE: dict[DailyBudget, int] = {15: 4, 30: 8, 45: 12}
 
 _FIRST_DAY = (TaskKind.VOCAB, TaskKind.VOCAB, TaskKind.LISTEN)
 _LATER_DAY = (TaskKind.VOCAB, TaskKind.LISTEN, TaskKind.SPEAK)
@@ -129,9 +139,12 @@ def build_plan(
 
 
 def _choose_scenarios(catalog: tuple[Scenario, ...], ordinary_days: int) -> list[Scenario]:
-    """The K most essential Scenarios, ordered easy to hard, then by priority."""
-    k = min(max(round(ordinary_days / 2.5), 2), len(catalog))
-    chosen = sorted(catalog, key=lambda s: s.priority)[:k]
+    """The K most essential Scenarios, ordered easy to hard, then by priority.
+
+    `catalog` comes most essential first, as `scenarios_for` returns it.
+    """
+    k = min(max(round(ordinary_days / ORDINARY_DAYS_PER_SCENARIO), 2), len(catalog))
+    chosen = catalog[:k]
     return sorted(chosen, key=lambda s: (s.difficulty, s.priority))
 
 

@@ -1,6 +1,13 @@
 import pytest
+from pydantic import ValidationError
 
-from app.services.catalog import SCENARIO_CATALOG, EventType, find_scenario, scenarios_for
+from app.services.catalog import (
+    SCENARIO_CATALOG,
+    EventType,
+    Scenario,
+    find_scenario,
+    scenarios_for,
+)
 
 
 @pytest.mark.parametrize("event_type", list(EventType))
@@ -46,9 +53,5 @@ def test_an_unknown_slug_finds_nothing() -> None:
 
 
 def test_a_difficulty_outside_one_to_three_is_rejected() -> None:
-    from pydantic import ValidationError
-
-    from app.services.catalog import Scenario
-
     with pytest.raises(ValidationError):
         Scenario(slug="speech.x", event_type=EventType.SPEECH, title="X", difficulty=4, priority=1)
