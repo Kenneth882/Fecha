@@ -27,8 +27,10 @@ from app.schemas.event import (
     PlanMilestone,
     PlanTask,
     TargetLanguage,
+    TodayDetail,
+    TodayTask,
 )
-from app.services.catalog import find_scenario
+from app.services.catalog import Scenario, find_scenario
 from app.services.local_time import local_today
 from app.services.planner import MIN_PLAN_DAYS, DailyBudget, DraftPlan, build_plan
 from app.services.task_status import task_status
@@ -169,6 +171,42 @@ async def get_current_plan(
     )
 
 
+async def get_today(
+    session: AsyncSession, user: User, event_id: uuid.UUID, now: datetime
+) -> TodayDetail:
+    """The Current Plan's Tasks on the User's local today, as "Day N of M".
+
+    Plan Day 1 is the Event's creation date in the User's timezone. On the Event Day
+    and for a Past Event there are no Tasks and no Plan Day. Raises
+    EventNotFoundError as `get_event` does.
+    """
+    event, version = await _own_event(session, user, event_id)
+    today = local_today(now, user.timezone)
+    first_day = local_today(event.created_at, user.timezone)
+    state = event_state(event, today)
+    plan_day: int | None = None
+    tasks: list[TodayTask] = []
+    if state is EventState.ACTIVE:
+        plan_day = (today - first_day).days + 1
+        rows = await session.execute(
+            select(Task, Milestone.scenario_slug)
+            .join(Milestone, Task.milestone_id == Milestone.id)
+            .join(Plan, Milestone.plan_id == Plan.id)
+            .where(Plan.event_id == event.id, Plan.version == version, Task.date == today)
+            .order_by(Task.position)
+        )
+        tasks = [_today_task(task, slug, today) for task, slug in rows]
+    return TodayDetail(
+        today=today,
+        plan_day=plan_day,
+        plan_days=(event.event_day - first_day).days,
+        days_until_event_day=_days_until_event_day(event, today),
+        state=state,
+        current_plan_version=version,
+        tasks=tasks,
+    )
+
+
 async def _own_event(
     session: AsyncSession, user: User, event_id: uuid.UUID, *, for_update: bool = False
 ) -> tuple[Event, int]:
@@ -224,13 +262,28 @@ def _plan_rows(event: Event, draft: DraftPlan, *, version: int, generated_at: da
     )
 
 
+def _catalog_scenario(slug: str) -> Scenario:
+    scenario = find_scenario(slug)
+    if scenario is None:
+        # Stored slugs always name a catalog Scenario (ADR 0003); a test guards it.
+        raise LookupError(f"Scenario {slug!r} isn't in the catalog")
+    return scenario
+
+
+def _today_task(task: Task, scenario_slug: str, today: date) -> TodayTask:
+    return TodayTask(
+        id=task.id,
+        scenario_title=_catalog_scenario(scenario_slug).title,
+        kind=task.kind,
+        estimated_minutes=task.estimated_minutes,
+        status=task_status(task.date, task.completed_at, today=today),
+    )
+
+
 def _plan_milestone(milestone: Milestone, today: date) -> PlanMilestone:
     """`milestone` with its Scenario's catalog details and its Tasks grouped by Plan
     Day, each with its status on `today`."""
-    scenario = find_scenario(milestone.scenario_slug)
-    if scenario is None:
-        # Stored slugs always name a catalog Scenario (ADR 0003); a test guards it.
-        raise LookupError(f"Scenario {milestone.scenario_slug!r} isn't in the catalog")
+    scenario = _catalog_scenario(milestone.scenario_slug)
     tasks = sorted(milestone.tasks, key=lambda t: (t.date, t.position))
     return PlanMilestone(
         scenario_slug=scenario.slug,
@@ -264,6 +317,11 @@ def event_state(event: Event, today: date) -> EventState:
     return EventState.ACTIVE
 
 
+def _days_until_event_day(event: Event, today: date) -> int:
+    """0 on the Event Day and afterwards."""
+    return max((event.event_day - today).days, 0)
+
+
 def _summary(event: Event, today: date) -> EventSummary:
     return EventSummary(
         id=event.id,
@@ -274,7 +332,7 @@ def _summary(event: Event, today: date) -> EventSummary:
         abandoned_at=event.abandoned_at,
         created_at=event.created_at,
         state=event_state(event, today),
-        days_until_event_day=max((event.event_day - today).days, 0),
+        days_until_event_day=_days_until_event_day(event, today),
     )
 
 

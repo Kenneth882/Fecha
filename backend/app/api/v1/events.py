@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_current_user, get_db, get_now
 from app.core.errors import error_responses
 from app.models.user import User
-from app.schemas.event import EventCreate, EventDetail, EventSummary, PlanDetail
+from app.schemas.event import EventCreate, EventDetail, EventSummary, PlanDetail, TodayDetail
 from app.services import events
 
 router = APIRouter(
@@ -61,6 +61,17 @@ async def plan(
 ) -> PlanDetail:
     """The Event's Current Plan: Milestones in order, each with its Tasks by Plan Day."""
     return await events.get_current_plan(session, user, event_id, now)
+
+
+@router.get("/{event_id}/today", responses=error_responses(status.HTTP_404_NOT_FOUND))
+async def today(
+    event_id: uuid.UUID,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+    now: Annotated[datetime, Depends(get_now)],
+) -> TodayDetail:
+    """What to do today: "Day N of M" and the Current Plan's Tasks on local today."""
+    return await events.get_today(session, user, event_id, now)
 
 
 @router.post(
