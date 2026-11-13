@@ -19,6 +19,10 @@ class EventType(StrEnum):
     SPEECH = "speech"
 
 
+# 1 (easy) to 3 (hard).
+Difficulty = Annotated[int, Field(ge=1, le=3)]
+
+
 class Scenario(BaseModel):
     """A reusable real-world situation within an Event Type.
 
@@ -32,7 +36,7 @@ class Scenario(BaseModel):
     slug: str
     event_type: EventType
     title: str
-    difficulty: Annotated[int, Field(ge=1, le=3)]
+    difficulty: Difficulty
     priority: Annotated[int, Field(ge=1)]
 
 

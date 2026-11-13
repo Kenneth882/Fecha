@@ -6,11 +6,13 @@ into the User's local today here. Event states are derived, never stored (ADR 00
 
 import uuid
 from datetime import date, datetime
+from itertools import groupby
 from typing import cast
 
 from fastapi import status
 from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.errors import AppError
 from app.models.event import Event, Milestone, Plan, Task
@@ -20,10 +22,16 @@ from app.schemas.event import (
     EventDetail,
     EventState,
     EventSummary,
+    PlanDay,
+    PlanDetail,
+    PlanMilestone,
+    PlanTask,
     TargetLanguage,
 )
+from app.services.catalog import find_scenario
 from app.services.local_time import local_today
 from app.services.planner import MIN_PLAN_DAYS, DailyBudget, DraftPlan, build_plan
+from app.services.task_status import task_status
 
 # A cram planner, not a general course.
 MAX_DAYS_AHEAD = 60
@@ -136,6 +144,31 @@ async def list_events(session: AsyncSession, user: User, now: datetime) -> list[
     return [_summary(event, today) for event in rows]
 
 
+async def get_current_plan(
+    session: AsyncSession, user: User, event_id: uuid.UUID, now: datetime
+) -> PlanDetail:
+    """The Current Plan of one of the User's Events, with each Task's status on their
+    local today. Superseded Plans aren't exposed.
+
+    Raises EventNotFoundError as `get_event` does.
+    """
+    event, version = await _own_event(session, user, event_id)
+    plan = await session.scalar(
+        select(Plan)
+        .where(Plan.event_id == event.id, Plan.version == version)
+        .options(selectinload(Plan.milestones).selectinload(Milestone.tasks))
+    )
+    # Every Event is created with its first Plan in the same transaction (ADR 0004).
+    assert plan is not None
+    today = local_today(now, user.timezone)
+    return PlanDetail(
+        version=plan.version,
+        milestones=[
+            _plan_milestone(m, today) for m in sorted(plan.milestones, key=lambda m: m.position)
+        ],
+    )
+
+
 async def _own_event(
     session: AsyncSession, user: User, event_id: uuid.UUID, *, for_update: bool = False
 ) -> tuple[Event, int]:
@@ -188,6 +221,37 @@ def _plan_rows(event: Event, draft: DraftPlan, *, version: int, generated_at: da
             )
             for m in draft.milestones
         ],
+    )
+
+
+def _plan_milestone(milestone: Milestone, today: date) -> PlanMilestone:
+    """`milestone` with its Scenario's catalog details and its Tasks grouped by Plan
+    Day, each with its status on `today`."""
+    scenario = find_scenario(milestone.scenario_slug)
+    if scenario is None:
+        # Stored slugs always name a catalog Scenario (ADR 0003); a test guards it.
+        raise LookupError(f"Scenario {milestone.scenario_slug!r} isn't in the catalog")
+    tasks = sorted(milestone.tasks, key=lambda t: (t.date, t.position))
+    return PlanMilestone(
+        scenario_slug=scenario.slug,
+        title=scenario.title,
+        difficulty=scenario.difficulty,
+        position=milestone.position,
+        target_date=milestone.target_date,
+        days=[
+            PlanDay(date=day, tasks=[_plan_task(t, today) for t in day_tasks])
+            for day, day_tasks in groupby(tasks, key=lambda t: t.date)
+        ],
+    )
+
+
+def _plan_task(task: Task, today: date) -> PlanTask:
+    return PlanTask(
+        id=task.id,
+        kind=task.kind,
+        position=task.position,
+        estimated_minutes=task.estimated_minutes,
+        status=task_status(task.date, task.completed_at, today=today),
     )
 
 

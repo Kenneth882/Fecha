@@ -5,8 +5,9 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
-from app.services.catalog import EventType
-from app.services.planner import DailyBudget, Level
+from app.services.catalog import Difficulty, EventType
+from app.services.planner import DailyBudget, Level, TaskKind
+from app.services.task_status import TaskStatus
 
 TargetLanguage = Literal["es"]
 
@@ -56,3 +57,41 @@ class EventDetail(EventSummary):
     daily_budget: DailyBudget
     goals: str | None
     current_plan_version: int
+
+
+class PlanTask(BaseModel):
+    """One Task in a Plan, with its status on the User's local today."""
+
+    id: uuid.UUID
+    kind: TaskKind
+    # Its place among all the Plan Day's Tasks, across every Milestone, from 1; a
+    # Milestone's own Tasks on that day may not start at 1.
+    position: int
+    estimated_minutes: int
+    status: TaskStatus
+
+
+class PlanDay(BaseModel):
+    """A Milestone's Tasks on one Plan Day, in position order."""
+
+    date: date
+    tasks: list[PlanTask]
+
+
+class PlanMilestone(BaseModel):
+    """A Scenario scheduled in the Plan. Its title and difficulty come from the Scenario
+    Catalog (ADR 0003)."""
+
+    scenario_slug: str
+    title: str
+    difficulty: Difficulty
+    position: int
+    target_date: date
+    days: list[PlanDay]
+
+
+class PlanDetail(BaseModel):
+    """An Event's Current Plan: its Milestones in order, each with Tasks by Plan Day."""
+
+    version: int
+    milestones: list[PlanMilestone]
