@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     # e.g. redis://host:6379/0
     redis_url: SecretStr
 
+    # The demo User that `python -m app.seed` recreates. The defaults are documented
+    # local placeholders, not secrets: override both anywhere the API is public.
+    demo_email: str = "demo@example.com"
+    demo_password: SecretStr = SecretStr("local-demo-only-2026!")
+
     # Level for the app's JSON logs (the per-request access line is INFO).
     log_level: LogLevel = "INFO"
 
@@ -40,7 +45,7 @@ class Settings(BaseSettings):
 def load_settings(env_file: Path | None = ROOT_ENV_FILE) -> Settings:
     """Read Settings from env vars plus `env_file` (None: env vars only).
 
-    Call this only from composition roots (`create_app`, the worker's startup,
+    Call this only from composition roots (`create_app`, the worker's startup, `app.seed`,
     `alembic/env.py`); everything else receives Settings as a parameter or dependency.
     Validation failures become a ConfigError naming each missing or invalid variable.
     """

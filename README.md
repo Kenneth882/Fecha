@@ -91,7 +91,13 @@ The api container applies migrations (`alembic upgrade head`) before it starts s
 
 - API: http://localhost:8000 — interactive docs at http://localhost:8000/docs, readiness at http://localhost:8000/api/v1/health/ready
 - Web: http://localhost:3000 (_TBD_, once `web/` lands)
-- Demo account: **"Job interview in Spanish, 12 days out"** — credentials _TBD_
+- Demo account: **"Job interview in Spanish, 12 days out"**. Seed it once the stack is up:
+
+  ```bash
+  docker compose exec api python -m app.seed   # or, on the host: cd backend && uv run python -m app.seed
+  ```
+
+  Then log in as `demo@example.com` / `local-demo-only-2026!` (local placeholders, set by `DEMO_EMAIL` / `DEMO_PASSWORD`). Re-running it is safe: it recreates the demo User with a fresh Event 12 days after today, so the demo never goes stale. It doesn't run on `docker compose up` yet (Week 8).
 
 ### Local backend development
 
@@ -104,6 +110,7 @@ uv run pre-commit install     # ruff, ruff-format and mypy on every commit
 uv run alembic upgrade head
 uv run uvicorn --factory app.main:create_app --reload --no-access-log
 uv run arq app.workers.tasks.WorkerSettings   # in a second terminal
+uv run python -m app.seed                     # recreate the demo User and their Event
 ```
 
 ### Tests and checks

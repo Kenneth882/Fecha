@@ -25,6 +25,7 @@ docker compose up -d postgres redis            # from the repo root: just the se
 uv sync                                        # install deps
 uv run uvicorn --factory app.main:create_app --reload --no-access-log  # API on :8000, docs at /docs; the app writes its own JSON access log
 uv run arq app.workers.tasks.WorkerSettings    # background worker
+uv run python -m app.seed                      # recreate the demo User and their Event (safe to re-run)
 uv run alembic revision --autogenerate -m "…"  # new migration
 uv run alembic upgrade head                    # apply migrations
 uv run pytest                                  # all tests
@@ -44,7 +45,7 @@ Always use `uv run` / `uv add` — never `pip install`.
 - **Schemas vs models:** `schemas/` holds Pydantic request/response models; `models/` holds SQLAlchemy tables. Don't return ORM objects directly from routes without a response schema.
 - **Dependencies:** get the DB session and current user via `Depends(get_db)` / `Depends(get_current_user)` from `core/deps.py`. `get_db` is a `yield` dependency.
 - **Config:** all settings come from `core/config.py` (pydantic-settings). Locally they're read from env vars plus the single repo-root `.env`; containers get real env vars from compose, not files. No hardcoded URLs, keys or secrets; never commit `.env`.
-- **Composition roots:** only `create_app`, the arq worker's startup and `alembic/env.py` call `load_settings()`. Everything else receives `Settings` as a parameter or via `Depends(get_settings)` from `core/deps.py`. `app.main` has no module-level app: the API runs with `uvicorn --factory app.main:create_app`.
+- **Composition roots:** only `create_app`, the arq worker's startup, `alembic/env.py` and the demo seed's `app.seed` entry point call `load_settings()`. Everything else receives `Settings` as a parameter or via `Depends(get_settings)` from `core/deps.py`. `app.main` has no module-level app: the API runs with `uvicorn --factory app.main:create_app`.
 - **Long work goes to the worker.** Plan content generation (Vocab Items, Listen Task dialogues, roleplay prompts) and report generation run as arq jobs in `workers/tasks.py`, not in the request path. The Plan's schedule is not long work: `POST /events` builds it synchronously with the pure planner, in the same transaction as the Event, then enqueues content generation. The worker fills in content and never changes the schedule (ADR 0004).
 - **Plans are versioned.** Re-planning creates a new `Plan` version; it must never lose or overwrite completed tasks.
 - **Startup/shutdown** (DB engine, Redis pool, HTTP clients) goes in the `lifespan` context manager in `main.py`.
