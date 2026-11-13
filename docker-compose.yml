@@ -12,6 +12,9 @@ x-backend: &backend
     REDIS_URL: redis://redis:6379/0
     LOG_LEVEL: ${LOG_LEVEL:-INFO}
     ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+    # For `docker compose exec api python -m app.seed`; defaults match app/core/config.py.
+    DEMO_EMAIL: ${DEMO_EMAIL:-demo@example.com}
+    DEMO_PASSWORD: ${DEMO_PASSWORD:-local-demo-only-2026!}
   restart: unless-stopped
 
 services:

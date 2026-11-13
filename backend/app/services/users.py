@@ -1,6 +1,7 @@
 import asyncio
 
 from fastapi import status
+from sqlalchemy import delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -43,3 +44,12 @@ async def register_user(session: AsyncSession, data: UserCreate) -> User:
             raise EmailTakenError from None
         raise
     return user
+
+
+async def delete_user_by_email(session: AsyncSession, email: str) -> None:
+    """Delete the User with this (lowercased) email, if any, without committing.
+
+    A bulk delete, so the database's ON DELETE CASCADE removes their Events, Plans
+    and Tasks too.
+    """
+    await session.execute(delete(User).where(User.email == email))
