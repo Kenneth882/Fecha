@@ -133,7 +133,7 @@ All routes live under `/api/v1` and require a JWT by default. The only public ro
 | GET | `/events` | List my Events, newest first, each with its state (`active`, `event_day` or `past`; abandoned Events are `past`) (added in #22) |
 | GET | `/events/{id}` | Event detail: state (`active`, `event_day` or `past`), days until the Event Day, Current Plan version; 404 for another User's Event (added in #21) |
 | GET | `/events/{id}/plan` | The Current Plan: its version and Milestones in order (Scenario title and difficulty from the catalog), each with its Tasks grouped by Plan Day. A Task is `completed` once done, `missed` if still incomplete after its Plan Day ended in the User's timezone, else `pending`. Superseded Plans aren't shown; 404 for another User's Event (added in #23) |
-| GET | `/events/{id}/today` | Today's Tasks, as "Day N of M" (planned) |
+| GET | `/events/{id}/today` | What to do on the User's local today: "Day N of M" (Plan Day 1 is the Event's local creation date), days until the Event Day, state, Current Plan version and today's Tasks in order (id, Scenario title, kind, estimated minutes, status). On the Event Day or for a Past Event: 200 with no Plan Day and no Tasks; 404 for another User's Event (added in #24) |
 | POST | `/events/{id}/abandon` | Abandon the Active Event, so another can be created; it stays readable as `past`. 409 if it's already past, 404 for another User's Event (added in #22) |
 | POST | `/events/{id}/replan` | Re-plan after Missed Tasks (planned) |
 | GET | `/reviews/due` | SRS items due now |

@@ -95,3 +95,31 @@ class PlanDetail(BaseModel):
 
     version: int
     milestones: list[PlanMilestone]
+
+
+class TodayTask(BaseModel):
+    """One of today's Tasks, with its Milestone's Scenario title and its status."""
+
+    id: uuid.UUID
+    scenario_title: str
+    kind: TaskKind
+    estimated_minutes: int
+    status: TaskStatus
+
+
+class TodayDetail(BaseModel):
+    """What a User does today for an Event: "Day N of M" and today's Tasks in order.
+
+    On the Event Day and for a Past Event there's no Plan Day: `plan_day` is null and
+    `tasks` is empty.
+    """
+
+    today: date
+    # From 1, the Event's local creation date; null unless the Event is `active`.
+    plan_day: int | None
+    # The days from the creation date up to the day before the Event Day.
+    plan_days: int
+    days_until_event_day: int
+    state: EventState
+    current_plan_version: int
+    tasks: list[TodayTask]
