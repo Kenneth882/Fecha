@@ -128,14 +128,18 @@ uv run mypy app tests alembic
 
 ## API overview
 
-All routes live under `/api/v1` and require a JWT by default. The only public routes are `/auth/register`, `/auth/login`, `/health` (liveness) and `/health/ready` (readiness). Send the token from `/auth/login` as `Authorization: Bearer <token>`; it lasts `ACCESS_TOKEN_EXPIRE_MINUTES` (default 30) and there are no refresh tokens, so log in again when it expires.
+All routes live under `/api/v1` and require a JWT by default. The only public routes are `/auth/register`, `/auth/login`, `/auth/refresh`, `/health` (liveness) and `/health/ready` (readiness). Send the access token from `/auth/login` as `Authorization: Bearer <token>`; it lasts `ACCESS_TOKEN_EXPIRE_MINUTES` (default 30).
+
+Login also returns a refresh token (ADR 0007). Send it to `/auth/refresh` before the access token expires to get a new access token and a new refresh token; the one you sent stops working, so keep only the newest. A session ends after `REFRESH_TOKEN_IDLE_DAYS` (default 30) without a refresh, and `REFRESH_TOKEN_ABSOLUTE_DAYS` (default 90) after its login however often it's refreshed. Presenting a refresh token that's already been used or revoked counts as theft and ends every session of that User. `/auth/logout` ends the session on the server. Only a SHA-256 hash of each refresh token is stored.
 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/health` | Liveness (public) |
 | GET | `/health/ready` | Readiness: Postgres and Redis (public; added in #3) |
 | POST | `/auth/register` | Create a User; returns the profile (public; added in #6) |
-| POST | `/auth/login` | Exchange email and password for an access token (public; added in #7) |
+| POST | `/auth/login` | Exchange email and password for an access token and a refresh token, starting a session (public; added in #7, refresh token added in #45) |
+| POST | `/auth/refresh` | Swap a refresh token for a new access token and refresh token; the old one is revoked. 401 `invalid_refresh_token` if it's unknown, expired or revoked, and a revoked one also revokes every session of its User (public; added in #45) |
+| POST | `/auth/logout` | Revoke the session the given refresh token belongs to; 204. Unknown tokens and other Users' tokens are ignored (added in #45) |
 | GET | `/auth/me` | The current User's profile (added in #7) |
 | POST | `/events` | Create the User's Event and build its first Plan in the same transaction; 409 if they already have an Active Event (added in #21) |
 | GET | `/events` | List my Events, newest first, each with its state (`active`, `event_day` or `past`; abandoned Events are `past`) (added in #22) |
@@ -200,6 +204,7 @@ The API logs JSON lines to stdout. Each request writes one access line (`method`
 | Task | id, milestone_id, date, kind, position, estimated_minutes, vocab_batch_size, vocab_batch_fixed_at, completed_at | kind = vocab, listen, speak; `date` is the Plan Day; `vocab_batch_size` is how many Vocab Items a Vocab Task teaches, set by the planner (required for vocab, null otherwise, by a check constraint); `payload` arrives with content (Weeks 3–4) |
 | VocabItem | id, scenario_slug, language, level, item_key, phrase, translation, position, source, retired_at | Shared across Users. (scenario_slug, language, item_key) unique; `position` orders a Scenario's items, easiest and most essential first; level null = suits every Level; source = seed, generated. Seed items come from `app/data/seed-vocab-es.json`, upserted by `load_seed_vocab`; items that leave the file are retired, never deleted |
 | VocabTaskItem | task_id, position, vocab_item_id | A Vocab Task's batch, written once when it's fixed (on first open or completion; `tasks.vocab_batch_fixed_at` records when, so an empty batch stays fixed too). (task_id, vocab_item_id) unique. Two of an Event's Tasks that can still be completed never share an item; a Missed Task's items go back into the pool |
+| RefreshToken | id, user_id, token_hash, family_id, created_at, last_used_at, expires_at, revoked_at, replaced_by_id | token_hash (unique) is the SHA-256 of a random 32-byte token; the token itself is never stored. A family is one session: every refresh adds its next token and revokes the last, linked by replaced_by_id. expires_at is 30 days after the token was issued, never past 90 days after the family's first login. Revoked rows are kept, to detect reuse (ADR 0007) |
 | ReviewState | event_id, vocab_item_id, introduced_on, ease, interval_days, repetitions, lapses, due_on, reviewed_in_final_window | One row per Introduced Vocab Item per Event, (event_id, vocab_item_id) the key: nothing carries over between Events (ADR 0001). Created when a Vocab Task is completed and updated by `srs.py`; `due_on` is null once nothing more is scheduled before the Event Day |
 | Review | id, event_id, vocab_item_id, plan_day, grade, reviewed_at | Append-only log: rows are never updated or deleted. `plan_day` is the User's local date; grade 0–5. (event_id, vocab_item_id) refers to its Review State. Written from #43 |
 | RoleplaySession | id, milestone_id, transcript (JSON), audio_url, scores, duration_sec, cost_usd | |
@@ -277,6 +282,7 @@ backend/
 │   │   ├── local_time.py  # UTC moment + IANA timezone → the User's local today, pure
 │   │   ├── planner.py     # backward planning algorithm, pure Python
 │   │   ├── seed_vocab.py  # reads the seed vocabulary file and upserts it into vocab_items
+│   │   ├── refresh_tokens.py  # issue, rotate and revoke refresh tokens (ADR 0007)
 │   │   ├── srs.py         # deadline-compressed SM-2 scheduler, pure Python
 │   │   ├── tasks.py       # open a Vocab Task (fix its batch) and complete it (introduce it)
 │   │   ├── llm.py         # plan/scenario generation (planned)

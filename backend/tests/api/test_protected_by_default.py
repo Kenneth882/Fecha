@@ -11,6 +11,7 @@ PUBLIC = {
     ("GET", "/api/v1/health/ready"),
     ("POST", "/api/v1/auth/register"),
     ("POST", "/api/v1/auth/login"),
+    ("POST", "/api/v1/auth/refresh"),
 }
 
 
@@ -34,4 +35,16 @@ async def test_every_route_but_the_public_ones_needs_a_token(
             unguarded.append(f"{method} {path}: {response.status_code}")
 
     assert unguarded == []
-    assert {("GET", "/api/v1/auth/me")} <= set(routes)
+    assert set(routes) >= PUBLIC
+    assert {("GET", "/api/v1/auth/me"), ("POST", "/api/v1/auth/logout")} <= set(routes)
+
+
+async def test_exactly_the_five_public_routes_answer_without_a_token(client: AsyncClient) -> None:
+    answered = {
+        (method, path)
+        for method, path in PUBLIC
+        if (await client.request(method, path)).status_code != 401
+    }
+
+    assert answered == PUBLIC
+    assert len(PUBLIC) == 5

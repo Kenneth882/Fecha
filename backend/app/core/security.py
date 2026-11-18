@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -35,6 +37,28 @@ def create_access_token(user_id: uuid.UUID, settings: Settings) -> AccessToken:
     claims = {"sub": str(user_id), "iat": issued_at, "exp": issued_at + lifetime}
     token = jwt.encode(claims, settings.jwt_secret.get_secret_value(), algorithm=JWT_ALGORITHM)
     return AccessToken(token=token, expires_in=int(lifetime.total_seconds()))
+
+
+def new_refresh_token() -> str:
+    """A fresh random refresh token: 32 bytes from the OS's CSPRNG, URL-safe."""
+    return secrets.token_urlsafe(32)
+
+
+def hash_refresh_token(token: str) -> str:
+    """The SHA-256 hex digest stored in place of a refresh token.
+
+    A plain hash is enough, unlike for passwords: the token is 32 random bytes, so
+    there's nothing to guess, and a fast hash lets it be looked up by equality.
+    """
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+def refresh_token_expiry(
+    last_used: datetime, session_started: datetime, idle: timedelta, absolute: timedelta
+) -> datetime:
+    """When a refresh token expires: `idle` after its session was last used, but never
+    later than `absolute` after the session's first login (ADR 0007)."""
+    return min(last_used + idle, session_started + absolute)
 
 
 def access_token_subject(token: str, settings: Settings) -> uuid.UUID | None:
