@@ -15,3 +15,21 @@ Registration rejects any password found in these files, ignoring letter case
   passwords that the length, digit and special-character rules reject anyway;
   this adds the predictable ones those rules let through, such as `Password1!`
   and `Summer2026!`. Regenerate it after changing the script; don't edit it by hand.
+
+## Seed vocabulary
+
+- `seed-vocab-es.json`: about 20 Spanish phrases, with English translations, for
+  every Scenario in the Scenario Catalog (`app/services/catalog.py`), listed
+  easiest and most essential first. Drafted for CramPlan and reviewed by a
+  human. `load_seed_vocab` (`app/services/seed_vocab.py`) upserts it into
+  `vocab_items` by (Scenario slug, language, `item_key`) every time the api
+  container starts.
+  - Edit a phrase or translation in place and keep its `item_key`.
+  - Never rename or reuse an `item_key` once shipped: Review States refer to the
+    item. Removing an item from the file retires it rather than deleting it.
+  - The order in the file is the order Vocab Tasks introduce the items in.
+  - It's Spanish as spoken in Spain (the demo User lives in Madrid): `usted` in
+    formal settings, and Spain-specific words and paperwork such as `piso`,
+    `móvil`, `NIE`, `empadronarse` and `catorce pagas`. Concrete details in
+    model sentences (Madrid, customer service, 35.000 euros) are examples for
+    the User to adapt; `…` marks a slot to fill in.

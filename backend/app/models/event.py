@@ -2,13 +2,11 @@
 
 import uuid
 from datetime import date, datetime
-from enum import StrEnum
 
 from sqlalchemy import (
     CheckConstraint,
     Date,
     DateTime,
-    Enum,
     ForeignKey,
     SmallInteger,
     String,
@@ -17,21 +15,9 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base
+from app.models.base import Base, str_enum
 from app.services.catalog import EventType
 from app.services.planner import Level, TaskKind
-
-
-def _str_enum(enum: type[StrEnum], name: str) -> Enum:
-    """A StrEnum stored as its values in a VARCHAR with a CHECK constraint, like `role`."""
-    return Enum(
-        enum,
-        name=name,
-        native_enum=False,
-        create_constraint=True,
-        values_callable=lambda members: [member.value for member in members],
-        length=16,
-    )
 
 
 class Event(Base):
@@ -48,12 +34,12 @@ class Event(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), index=True
     )
-    type: Mapped[EventType] = mapped_column(_str_enum(EventType, "event_type"))
+    type: Mapped[EventType] = mapped_column(str_enum(EventType, "event_type"))
     # Validated by the API schema; only "es" for now. No DB constraint, like
     # users.native_language, so adding a language needs no migration.
     target_language: Mapped[str] = mapped_column(String(8))
     event_day: Mapped[date] = mapped_column(Date)
-    level: Mapped[Level] = mapped_column(_str_enum(Level, "level"))
+    level: Mapped[Level] = mapped_column(str_enum(Level, "level"))
     daily_budget: Mapped[int] = mapped_column(SmallInteger)
     # Free text kept for personalising content later; the planner doesn't read it.
     goals: Mapped[str | None] = mapped_column(Text)
@@ -109,7 +95,7 @@ class Task(Base):
         ForeignKey("milestones.id", ondelete="CASCADE"), index=True
     )
     date: Mapped[date] = mapped_column(Date)
-    kind: Mapped[TaskKind] = mapped_column(_str_enum(TaskKind, "task_kind"))
+    kind: Mapped[TaskKind] = mapped_column(str_enum(TaskKind, "task_kind"))
     # Orders the Task within its Plan Day, from 1.
     position: Mapped[int] = mapped_column(SmallInteger)
     estimated_minutes: Mapped[int] = mapped_column(SmallInteger)

@@ -1,4 +1,6 @@
-from sqlalchemy import MetaData
+from enum import StrEnum
+
+from sqlalchemy import Enum, MetaData
 from sqlalchemy.orm import DeclarativeBase
 
 # Deterministic constraint names, so autogenerate can diff and drop them reliably.
@@ -15,3 +17,15 @@ class Base(DeclarativeBase):
     """The base for every SQLAlchemy table. Alembic autogenerate reads its metadata."""
 
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
+
+
+def str_enum(enum: type[StrEnum], name: str) -> Enum:
+    """A StrEnum stored as its values in a VARCHAR with a CHECK constraint, like `role`."""
+    return Enum(
+        enum,
+        name=name,
+        native_enum=False,
+        create_constraint=True,
+        values_callable=lambda members: [member.value for member in members],
+        length=16,
+    )

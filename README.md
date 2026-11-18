@@ -87,7 +87,7 @@ cp .env.example .env          # the placeholders work as-is on your machine
 docker compose up             # api, worker, postgres, redis
 ```
 
-The api container applies migrations (`alembic upgrade head`) before it starts serving, so a fresh database needs no manual steps.
+The api container applies migrations (`alembic upgrade head`) and loads the seed vocabulary (`python -m app.load_seed_vocab`) before it starts serving, so a fresh database needs no manual steps.
 
 - API: http://localhost:8000 — interactive docs at http://localhost:8000/docs, readiness at http://localhost:8000/api/v1/health/ready
 - Web: http://localhost:3000 (_TBD_, once `web/` lands)
@@ -108,6 +108,7 @@ cd backend
 uv sync
 uv run pre-commit install     # ruff, ruff-format and mypy on every commit
 uv run alembic upgrade head
+uv run python -m app.load_seed_vocab         # upsert the Spanish seed Vocab Items (safe to re-run)
 uv run uvicorn --factory app.main:create_app --reload --no-access-log
 uv run arq app.workers.tasks.WorkerSettings   # in a second terminal
 uv run python -m app.seed                     # recreate the demo User and their Event
@@ -195,7 +196,7 @@ The API logs JSON lines to stdout. Each request writes one access line (`method`
 | Plan | id, event_id, version, generated_at | (event_id, version) unique; the Current Plan is the highest version, and re-planning adds a version |
 | Milestone | id, plan_id, scenario_slug, position, target_date | A Scenario from the in-code Scenario Catalog, by slug (no foreign key; a test checks stored slugs); title comes from the catalog |
 | Task | id, milestone_id, date, kind, position, estimated_minutes, completed_at | kind = vocab, listen, speak; `date` is the Plan Day; `payload` arrives with content (Weeks 3–4) |
-| VocabItem | id, phrase, translation, audio_url, scenario_tag, language | Shared across users, cached |
+| VocabItem | id, scenario_slug, language, level, item_key, phrase, translation, position, source, retired_at | Shared across Users. (scenario_slug, language, item_key) unique; `position` orders a Scenario's items, easiest and most essential first; level null = suits every Level; source = seed, generated. Seed items come from `app/data/seed-vocab-es.json`, upserted by `load_seed_vocab`; items that leave the file are retired, never deleted |
 | ReviewState | user_id, vocab_item_id, ease, interval_days, due_at, lapses | One row per user per item |
 | RoleplaySession | id, milestone_id, transcript (JSON), audio_url, scores, duration_sec, cost_usd | |
 | ReadinessSnapshot | id, event_id, date, per_milestone_scores (JSON), overall | One per day; drives the trend chart |
@@ -260,6 +261,7 @@ backend/
 │   ├── core/              # config (pydantic-settings), deps (incl. the clock), JSON logging, middleware
 │   ├── db/                # async engine + sessionmaker, Redis client
 │   ├── models/            # SQLAlchemy tables
+│   ├── data/              # bundled data: common passwords, seed-vocab-es.json
 │   ├── schemas/           # Pydantic request/response models
 │   ├── api/v1/            # health, auth, events; practice, roleplay (planned)
 │   ├── services/
@@ -268,6 +270,7 @@ backend/
 │   │   ├── events.py      # create/read Events and their Plans; one Active Event per User
 │   │   ├── local_time.py  # UTC moment + IANA timezone → the User's local today, pure
 │   │   ├── planner.py     # backward planning algorithm, pure Python
+│   │   ├── seed_vocab.py  # reads the seed vocabulary file and upserts it into vocab_items
 │   │   ├── srs.py         # deadline-compressed SM-2 scheduler, pure Python
 │   │   ├── llm.py         # plan/scenario generation (planned)
 │   │   ├── voice.py       # STT/TTS pipeline (planned)
@@ -277,7 +280,7 @@ backend/
 ├── tests/
 │   ├── unit/              # pure logic: local time, srs, planner, scoring (no DB)
 │   ├── api/               # endpoint tests with dependency overrides
-│   ├── db/                # transactional test session
+│   ├── db/                # transactional test session, seed vocabulary loader
 │   └── workers/           # arq worker round-trip against test Redis
 └── pyproject.toml
 web/                       # Next.js + TypeScript PWA (planned)
