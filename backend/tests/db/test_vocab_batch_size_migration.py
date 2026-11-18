@@ -36,9 +36,9 @@ PRE_MIGRATION_ROWS = [
 ]
 
 
-def run_step(step: str) -> Callable[[Connection], None]:
-    """Run this revision's `upgrade` or `downgrade` on a connection."""
-    module = ScriptDirectory.from_config(alembic_config()).get_revision(REVISION).module
+def run_step(step: str, revision: str = REVISION) -> Callable[[Connection], None]:
+    """Run a revision's `upgrade` or `downgrade` (this one's by default) on a connection."""
+    module = ScriptDirectory.from_config(alembic_config()).get_revision(revision).module
 
     def run(conn: Connection) -> None:
         with Operations.context(MigrationContext.configure(conn)):

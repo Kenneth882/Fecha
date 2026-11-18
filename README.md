@@ -143,9 +143,11 @@ All routes live under `/api/v1` and require a JWT by default. The only public ro
 | GET | `/events/{id}/plan` | The Current Plan: its version and Milestones in order (Scenario title and difficulty from the catalog), each with its Tasks grouped by Plan Day. A Task is `completed` once done, `missed` if still incomplete after its Plan Day ended in the User's timezone, else `pending`. Each Task also has `vocab_batch_size`: how many Vocab Items a Vocab Task teaches, null for Listen and Speak Tasks (added in #40). Superseded Plans aren't shown; 404 for another User's Event (added in #23) |
 | GET | `/events/{id}/today` | What to do on the User's local today: "Day N of M" (Plan Day 1 is the Event's local creation date), days until the Event Day, state, Current Plan version and today's Tasks in order (id, Scenario title, kind, estimated minutes, `vocab_batch_size` (null except on Vocab Tasks, added in #40), status). On the Event Day or for a Past Event: 200 with no Plan Day and no Tasks; 404 for another User's Event (added in #24) |
 | POST | `/events/{id}/abandon` | Abandon the Active Event, so another can be created; it stays readable as `past`. 409 if it's already past, 404 for another User's Event (added in #22) |
+| GET | `/tasks/{id}/vocab` | A Vocab Task's batch: each Vocab Item's id, phrase and translation, in order. The first call fixes it (the Scenario's next available items for the Event's language and Level, in `position` order, up to `vocab_batch_size`); later calls return the same batch. Opening introduces nothing. The batch is shorter, possibly empty, once the Scenario runs out. 409 `not_a_vocab_task` for Listen and Speak Tasks; 404 `task_not_found` for another User's Task, identical to an unknown ID (added in #42) |
+| POST | `/tasks/{id}/complete` | Complete a Vocab Task: fixes its batch if needed, sets `completed_at` and introduces the batch, each item first due for Review the next day. Returns the Task's `status` and `items_introduced`. Idempotent: completing it again changes nothing and returns the same body. 409 `task_missed` for a Missed Task, `not_a_vocab_task` for Listen and Speak Tasks, `event_already_past` for a Past Event's Task; 404 as above (added in #42) |
 | POST | `/events/{id}/replan` | Re-plan after Missed Tasks (planned) |
-| GET | `/reviews/due` | SRS items due now |
-| POST | `/reviews/{item_id}` | Submit a review grade (0–5) |
+| GET | `/events/{id}/reviews/due` | The Review Queue for local today (planned, #43) |
+| POST | `/events/{id}/reviews` | Grade a due Review: again, hard, good or easy (planned, #43) |
 | WS | `/roleplay/{milestone_id}` | Stream a voice roleplay session |
 | GET | `/roleplay/sessions/{id}` | Transcript + feedback |
 | GET | `/events/{id}/readiness` | Readiness report + daily trend |
@@ -195,9 +197,11 @@ The API logs JSON lines to stdout. Each request writes one access line (`method`
 | Event | id, user_id, type, target_language, event_day, level, daily_budget, goals, abandoned_at, created_at | type = interview, relocation, speech; level = A1–C1; daily_budget = 15, 30, 45 minutes. No status column: active / event day / past is derived from `abandoned_at`, `event_day` and the User's local today (ADR 0005) |
 | Plan | id, event_id, version, generated_at | (event_id, version) unique; the Current Plan is the highest version, and re-planning adds a version |
 | Milestone | id, plan_id, scenario_slug, position, target_date | A Scenario from the in-code Scenario Catalog, by slug (no foreign key; a test checks stored slugs); title comes from the catalog |
-| Task | id, milestone_id, date, kind, position, estimated_minutes, vocab_batch_size, completed_at | kind = vocab, listen, speak; `date` is the Plan Day; `vocab_batch_size` is how many Vocab Items a Vocab Task teaches, set by the planner (required for vocab, null otherwise, by a check constraint); `payload` arrives with content (Weeks 3–4) |
+| Task | id, milestone_id, date, kind, position, estimated_minutes, vocab_batch_size, vocab_batch_fixed_at, completed_at | kind = vocab, listen, speak; `date` is the Plan Day; `vocab_batch_size` is how many Vocab Items a Vocab Task teaches, set by the planner (required for vocab, null otherwise, by a check constraint); `payload` arrives with content (Weeks 3–4) |
 | VocabItem | id, scenario_slug, language, level, item_key, phrase, translation, position, source, retired_at | Shared across Users. (scenario_slug, language, item_key) unique; `position` orders a Scenario's items, easiest and most essential first; level null = suits every Level; source = seed, generated. Seed items come from `app/data/seed-vocab-es.json`, upserted by `load_seed_vocab`; items that leave the file are retired, never deleted |
-| ReviewState | user_id, vocab_item_id, ease, interval_days, due_at, lapses | One row per user per item |
+| VocabTaskItem | task_id, position, vocab_item_id | A Vocab Task's batch, written once when it's fixed (on first open or completion; `tasks.vocab_batch_fixed_at` records when, so an empty batch stays fixed too). (task_id, vocab_item_id) unique. Two of an Event's Tasks that can still be completed never share an item; a Missed Task's items go back into the pool |
+| ReviewState | event_id, vocab_item_id, introduced_on, ease, interval_days, repetitions, lapses, due_on, reviewed_in_final_window | One row per Introduced Vocab Item per Event, (event_id, vocab_item_id) the key: nothing carries over between Events (ADR 0001). Created when a Vocab Task is completed and updated by `srs.py`; `due_on` is null once nothing more is scheduled before the Event Day |
+| Review | id, event_id, vocab_item_id, plan_day, grade, reviewed_at | Append-only log: rows are never updated or deleted. `plan_day` is the User's local date; grade 0–5. (event_id, vocab_item_id) refers to its Review State. Written from #43 |
 | RoleplaySession | id, milestone_id, transcript (JSON), audio_url, scores, duration_sec, cost_usd | |
 | ReadinessSnapshot | id, event_id, date, per_milestone_scores (JSON), overall | One per day; drives the trend chart |
 
@@ -265,7 +269,7 @@ backend/
 │   ├── models/            # SQLAlchemy tables
 │   ├── data/              # bundled data: common passwords, seed-vocab-es.json
 │   ├── schemas/           # Pydantic request/response models
-│   ├── api/v1/            # health, auth, events; practice, roleplay (planned)
+│   ├── api/v1/            # health, auth, events, tasks; reviews, roleplay (planned)
 │   ├── services/
 │   │   ├── health.py      # readiness checks
 │   │   ├── catalog.py     # the Scenario Catalog: fixed Scenarios per Event Type, pure
@@ -274,6 +278,7 @@ backend/
 │   │   ├── planner.py     # backward planning algorithm, pure Python
 │   │   ├── seed_vocab.py  # reads the seed vocabulary file and upserts it into vocab_items
 │   │   ├── srs.py         # deadline-compressed SM-2 scheduler, pure Python
+│   │   ├── tasks.py       # open a Vocab Task (fix its batch) and complete it (introduce it)
 │   │   ├── llm.py         # plan/scenario generation (planned)
 │   │   ├── voice.py       # STT/TTS pipeline (planned)
 │   │   └── scoring.py     # readiness score (planned)
