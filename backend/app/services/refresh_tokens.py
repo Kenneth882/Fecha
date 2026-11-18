@@ -2,8 +2,11 @@
 
 Each login starts a family of refresh tokens, of which only the newest is live: every
 refresh swaps it for the next one. Presenting a revoked token again means someone else
-holds a copy, so every token of that User is revoked. "Now" comes in as a parameter,
-from the `get_now` clock dependency.
+holds a copy, so every token of that User is revoked. The exceptions: an expired token
+is simply refused, and a token swapped by a refresh within the last
+`refresh_token_reuse_grace` (a race between two tabs, or a retry) gets a token of its
+own, as long as its family hasn't been logged out. "Now" comes in as a parameter, from
+the `get_now` clock dependency.
 """
 
 import logging
@@ -52,22 +55,31 @@ async def rotate(
     token, and revoke the one presented. Commits.
 
     Raises InvalidRefreshTokenError for an unknown, expired or revoked token. A revoked
-    one has been reused, so every refresh token of its User is revoked first.
+    one has been reused, so every refresh token of its User is revoked first, unless a
+    refresh swapped it within the grace period: then, if its family is still live, it
+    gets a new token of its own, and if not, it's just refused.
     """
     # Locked until the commit, so two refreshes with one token can't both rotate it:
-    # the second sees it revoked, as a replayed copy would be.
+    # the second sees it revoked and falls into the grace period.
     current = await session.scalar(select(RefreshToken).where(_matches(token)).with_for_update())
     if current is None:
         raise InvalidRefreshTokenError
-    if current.revoked_at is not None:
-        await _revoke(session, RefreshToken.user_id == current.user_id, now)
-        logger.warning(
-            "refresh token reused: every refresh token of the User revoked",
-            extra={"user_id": str(current.user_id), "family_id": str(current.family_id)},
-        )
-        raise InvalidRefreshTokenError
+    # Expiry first: an expired token can't refresh anything, so replaying one isn't
+    # worth ending every session over.
     if current.expires_at <= now:
         raise InvalidRefreshTokenError
+    log = {"user_id": str(current.user_id), "family_id": str(current.family_id)}
+    if current.revoked_at is not None:
+        if not _swapped_within_grace(current, now, settings):
+            await _revoke(session, RefreshToken.user_id == current.user_id, now)
+            logger.warning(
+                "refresh token reused: every refresh token of the User revoked", extra=log
+            )
+            raise InvalidRefreshTokenError
+        if not await _family_is_live(session, current.family_id):
+            # Lost a race with logout (or theft detection), not a sign of theft itself.
+            raise InvalidRefreshTokenError
+        logger.info("refresh token reused within the grace period", extra=log)
 
     family_started = await session.scalar(
         select(func.min(RefreshToken.created_at)).where(RefreshToken.family_id == current.family_id)
@@ -75,12 +87,14 @@ async def rotate(
     assert family_started is not None  # the family holds at least `current`
     issued, raw = _next_token(current.user_id, current.family_id, family_started, now, settings)
     session.add(issued)
-    # Inserted before `current` links to it: the link is a foreign key, and SQLAlchemy
-    # would otherwise flush the update first.
-    await session.flush()
-    current.last_used_at = now
-    current.revoked_at = now
-    current.replaced_by_id = issued.id
+    if current.revoked_at is None:
+        # Inserted before `current` links to it: the link is a foreign key, and
+        # SQLAlchemy would otherwise flush the update first. A grace-period reuse keeps
+        # the link to the token its first refresh issued.
+        await session.flush()
+        current.last_used_at = now
+        current.revoked_at = now
+        current.replaced_by_id = issued.id
     await session.commit()
     return _tokens(issued, raw, now, settings)
 
@@ -96,6 +110,25 @@ async def revoke_family(session: AsyncSession, user: User, token: str, now: date
     )
     if family_id is not None:
         await _revoke(session, RefreshToken.family_id == family_id, now)
+
+
+def _swapped_within_grace(token: RefreshToken, now: datetime, settings: Settings) -> bool:
+    """Whether a refresh, not a logout or theft, revoked `token` within the grace period."""
+    return (
+        token.replaced_by_id is not None
+        and token.revoked_at is not None
+        and now - token.revoked_at < settings.refresh_token_reuse_grace
+    )
+
+
+async def _family_is_live(session: AsyncSession, family_id: uuid.UUID) -> bool:
+    """Whether the family still has an unrevoked token: false once it's logged out."""
+    live = await session.scalar(
+        select(RefreshToken.id)
+        .where(RefreshToken.family_id == family_id, RefreshToken.revoked_at.is_(None))
+        .limit(1)
+    )
+    return live is not None
 
 
 def _matches(token: str) -> ColumnElement[bool]:

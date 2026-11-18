@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     refresh_token_idle_days: int = Field(default=30, gt=0)
     # ...and this many days after its first login, however often it's used.
     refresh_token_absolute_days: int = Field(default=90, gt=0)
+    # A refresh token swapped this recently can be used once more without counting as
+    # theft, so two tabs or a retry racing one refresh don't end every session. 0 = off.
+    refresh_token_reuse_grace_seconds: int = Field(default=30, ge=0)
 
     # e.g. postgresql+asyncpg://user:password@host:5432/dbname
     database_url: SecretStr
@@ -54,6 +57,10 @@ class Settings(BaseSettings):
     @property
     def refresh_token_absolute(self) -> timedelta:
         return timedelta(days=self.refresh_token_absolute_days)
+
+    @property
+    def refresh_token_reuse_grace(self) -> timedelta:
+        return timedelta(seconds=self.refresh_token_reuse_grace_seconds)
 
 
 def load_settings(env_file: Path | None = ROOT_ENV_FILE) -> Settings:

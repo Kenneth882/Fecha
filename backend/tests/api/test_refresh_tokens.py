@@ -13,6 +13,8 @@ from tests.conftest import Clock
 REFRESH = "/api/v1/auth/refresh"
 LOGOUT = "/api/v1/auth/logout"
 ME = "/api/v1/auth/me"
+# REFRESH_TOKEN_REUSE_GRACE_SECONDS is 30 by default: reuse is theft again from then on.
+PAST_GRACE = timedelta(seconds=30)
 
 
 async def refresh(client: AsyncClient, token: str) -> Response:
@@ -76,6 +78,7 @@ async def test_a_rotated_refresh_token_is_refused(
     client: AsyncClient, clock: Clock, user: RegisteredUser
 ) -> None:
     assert (await refresh(client, user.refresh_token)).status_code == 200
+    clock.now += PAST_GRACE
 
     assert_refresh_refused(await refresh(client, user.refresh_token))
 
@@ -85,6 +88,7 @@ async def test_reusing_a_rotated_token_revokes_every_session_of_the_user(
 ) -> None:
     other_device = (await log_in(client, user.profile["email"])).json()["refresh_token"]
     rotated = (await refresh(client, user.refresh_token)).json()["refresh_token"]
+    clock.now += PAST_GRACE
 
     # A thief replays the token the User has already swapped.
     assert_refresh_refused(await refresh(client, user.refresh_token))
@@ -98,9 +102,55 @@ async def test_reuse_leaves_other_users_sessions_alone(
 ) -> None:
     other = await register_and_log_in(client, email="bea@example.com")
     await refresh(client, user.refresh_token)
+    clock.now += PAST_GRACE
     await refresh(client, user.refresh_token)
 
     assert (await refresh(client, other.refresh_token)).status_code == 200
+
+
+async def test_a_token_rotated_moments_ago_still_refreshes_so_a_lost_race_stays_logged_in(
+    client: AsyncClient, clock: Clock, user: RegisteredUser
+) -> None:
+    other_device = (await log_in(client, user.profile["email"])).json()["refresh_token"]
+    winner = (await refresh(client, user.refresh_token)).json()["refresh_token"]
+    clock.now += timedelta(seconds=29)
+
+    # Two tabs, or a retry after a lost response, send the same token twice.
+    loser = await refresh(client, user.refresh_token)
+
+    assert loser.status_code == 200
+    assert loser.json()["refresh_token"] not in {winner, user.refresh_token}
+    me = await client.get(ME, headers={"Authorization": f"Bearer {loser.json()['access_token']}"})
+    assert me.status_code == 200
+    for token in (winner, loser.json()["refresh_token"], other_device):
+        assert (await refresh(client, token)).status_code == 200
+
+
+async def test_the_grace_period_never_revives_a_logged_out_session(
+    client: AsyncClient, clock: Clock, user: RegisteredUser
+) -> None:
+    other_device = (await log_in(client, user.profile["email"])).json()["refresh_token"]
+    rotated = (await refresh(client, user.refresh_token)).json()["refresh_token"]
+    await client.post(LOGOUT, json={"refresh_token": rotated}, headers=user.headers)
+
+    # Within the grace period, but the session it belonged to has ended.
+    assert_refresh_refused(await refresh(client, user.refresh_token))
+
+    # A lost race with logout isn't theft: other sessions carry on.
+    assert (await refresh(client, other_device)).status_code == 200
+
+
+async def test_an_expired_rotated_token_is_refused_without_ending_other_sessions(
+    client: AsyncClient, clock: Clock, user: RegisteredUser
+) -> None:
+    await refresh(client, user.refresh_token)
+    clock.now += timedelta(days=31)
+    other_device = (await log_in(client, user.profile["email"])).json()["refresh_token"]
+
+    # Long expired, so it can't refresh anything: no need to treat it as theft.
+    assert_refresh_refused(await refresh(client, user.refresh_token))
+
+    assert (await refresh(client, other_device)).status_code == 200
 
 
 async def test_a_session_idle_for_30_days_expires(
