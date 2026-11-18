@@ -75,9 +75,52 @@ export interface paths {
         put?: never;
         /**
          * Login
-         * @description Exchange an email and password for a short-lived access token. Needs no auth.
+         * @description Exchange an email and password for a short-lived access token and a refresh
+         *     token, starting a new session. Needs no auth.
          */
         post: operations["auth-login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh
+         * @description Swap a refresh token for a new access token and a new refresh token; the one sent
+         *     stops working. Reusing an old one ends every session of its User. Needs no auth.
+         */
+        post: operations["auth-refresh"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logout
+         * @description End the session the refresh token belongs to, so none of its refresh tokens work
+         *     again. The access token still works until it expires.
+         */
+        post: operations["auth-logout"];
         delete?: never;
         options?: never;
         head?: never;
@@ -202,6 +245,48 @@ export interface paths {
          * @description Abandon the User's Active Event so they can create another. It stays readable.
          */
         post: operations["events-abandon"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{task_id}/vocab": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Vocab
+         * @description A Vocab Task's batch of Vocab Items, in order. The first call fixes it; later
+         *     calls return the same batch. Opening a Task introduces nothing.
+         */
+        get: operations["tasks-vocab"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{task_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete
+         * @description Complete a Vocab Task, introducing its batch: each item is first due for Review
+         *     the next day. Completing it again changes nothing.
+         */
+        post: operations["tasks-complete"];
         delete?: never;
         options?: never;
         head?: never;
@@ -468,10 +553,34 @@ export interface components {
             checks: components["schemas"]["ReadinessChecks"];
         };
         /**
+         * RefreshTokenRequest
+         * @description A refresh token, sent to `/auth/refresh` to rotate it or `/auth/logout` to revoke it.
+         */
+        RefreshTokenRequest: {
+            /** Refresh Token */
+            refresh_token: string;
+        };
+        /**
          * Role
          * @enum {string}
          */
         Role: "user" | "admin";
+        /**
+         * TaskCompletion
+         * @description A completed Task's status, and how many Vocab Items it introduced.
+         *
+         *     The same every time it's completed: a repeat changes nothing.
+         */
+        TaskCompletion: {
+            /**
+             * Task Id
+             * Format: uuid
+             */
+            task_id: string;
+            status: components["schemas"]["TaskStatus"];
+            /** Items Introduced */
+            items_introduced: number;
+        };
         /**
          * TaskKind
          * @description What a Task asks of the User: learn Vocab Items, listen to a dialogue, or speak.
@@ -530,7 +639,8 @@ export interface components {
         };
         /**
          * TokenResponse
-         * @description A short-lived access token, sent as `Authorization: Bearer <access_token>`.
+         * @description A short-lived access token, sent as `Authorization: Bearer <access_token>`, and
+         *     the refresh token that gets the next one from `/auth/refresh` (ADR 0007).
          */
         TokenResponse: {
             /** Access Token */
@@ -543,6 +653,10 @@ export interface components {
             token_type: "bearer";
             /** Expires In */
             expires_in: number;
+            /** Refresh Token */
+            refresh_token: string;
+            /** Refresh Expires In */
+            refresh_expires_in: number;
         };
         /**
          * UserCreate
@@ -590,6 +704,36 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /**
+         * VocabBatch
+         * @description A Vocab Task's batch, in order. Fixed the first time the Task is opened or
+         *     completed, so it's the same every time. It's shorter than the Task's
+         *     `vocab_batch_size`, possibly empty, when its Scenario has run out of items.
+         */
+        VocabBatch: {
+            /**
+             * Task Id
+             * Format: uuid
+             */
+            task_id: string;
+            /** Items */
+            items: components["schemas"]["VocabBatchItem"][];
+        };
+        /**
+         * VocabBatchItem
+         * @description One Vocab Item in a Vocab Task's batch, with its English translation.
+         */
+        VocabBatchItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Phrase */
+            phrase: string;
+            /** Translation */
+            translation: string;
         };
     };
     responses: never;
@@ -712,6 +856,88 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["TokenResponse"];
                 };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "auth-refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TokenResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "auth-logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RefreshTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Unauthorized */
             401: {
@@ -1016,6 +1242,122 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EventDetail"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "tasks-vocab": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VocabBatch"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "tasks-complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskCompletion"];
                 };
             };
             /** @description Unauthorized */

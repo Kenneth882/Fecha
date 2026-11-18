@@ -117,7 +117,7 @@
           "auth"
         ],
         "summary": "Login",
-        "description": "Exchange an email and password for a short-lived access token. Needs no auth.",
+        "description": "Exchange an email and password for a short-lived access token and a refresh\ntoken, starting a new session. Needs no auth.",
         "operationId": "auth-login",
         "requestBody": {
           "content": {
@@ -161,6 +161,108 @@
             }
           }
         }
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Refresh",
+        "description": "Swap a refresh token for a new access token and a new refresh token; the one sent\nstops working. Reusing an old one ends every session of its User. Needs no auth.",
+        "operationId": "auth-refresh",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Logout",
+        "description": "End the session the refresh token belongs to, so none of its refresh tokens work\nagain. The access token still works until it expires.",
+        "operationId": "auth-logout",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/api/v1/auth/me": {
@@ -591,6 +693,164 @@
           },
           "409": {
             "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{task_id}/vocab": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Vocab",
+        "description": "A Vocab Task's batch of Vocab Items, in order. The first call fixes it; later\ncalls return the same batch. Opening a Task introduces nothing.",
+        "operationId": "tasks-vocab",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VocabBatch"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{task_id}/complete": {
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Complete",
+        "description": "Complete a Vocab Task, introducing its batch: each item is first due for Review\nthe next day. Completing it again changes nothing.",
+        "operationId": "tasks-complete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskCompletion"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
             "content": {
               "application/json": {
                 "schema": {
@@ -1136,6 +1396,21 @@
         ],
         "title": "ReadinessResponse"
       },
+      "RefreshTokenRequest": {
+        "properties": {
+          "refresh_token": {
+            "type": "string",
+            "maxLength": 128,
+            "title": "Refresh Token"
+          }
+        },
+        "type": "object",
+        "required": [
+          "refresh_token"
+        ],
+        "title": "RefreshTokenRequest",
+        "description": "A refresh token, sent to `/auth/refresh` to rotate it or `/auth/logout` to revoke it."
+      },
       "Role": {
         "type": "string",
         "enum": [
@@ -1143,6 +1418,30 @@
           "admin"
         ],
         "title": "Role"
+      },
+      "TaskCompletion": {
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Task Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TaskStatus"
+          },
+          "items_introduced": {
+            "type": "integer",
+            "title": "Items Introduced"
+          }
+        },
+        "type": "object",
+        "required": [
+          "task_id",
+          "status",
+          "items_introduced"
+        ],
+        "title": "TaskCompletion",
+        "description": "A completed Task's status, and how many Vocab Items it introduced.\n\nThe same every time it's completed: a repeat changes nothing."
       },
       "TaskKind": {
         "type": "string",
@@ -1278,15 +1577,25 @@
           "expires_in": {
             "type": "integer",
             "title": "Expires In"
+          },
+          "refresh_token": {
+            "type": "string",
+            "title": "Refresh Token"
+          },
+          "refresh_expires_in": {
+            "type": "integer",
+            "title": "Refresh Expires In"
           }
         },
         "type": "object",
         "required": [
           "access_token",
-          "expires_in"
+          "expires_in",
+          "refresh_token",
+          "refresh_expires_in"
         ],
         "title": "TokenResponse",
-        "description": "A short-lived access token, sent as `Authorization: Bearer <access_token>`."
+        "description": "A short-lived access token, sent as `Authorization: Bearer <access_token>`, and\nthe refresh token that gets the next one from `/auth/refresh` (ADR 0007)."
       },
       "UserCreate": {
         "properties": {
@@ -1359,6 +1668,54 @@
         ],
         "title": "UserRead",
         "description": "A User's profile. It never carries the password hash."
+      },
+      "VocabBatch": {
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Task Id"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/VocabBatchItem"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "task_id",
+          "items"
+        ],
+        "title": "VocabBatch",
+        "description": "A Vocab Task's batch, in order. Fixed the first time the Task is opened or\ncompleted, so it's the same every time. It's shorter than the Task's\n`vocab_batch_size`, possibly empty, when its Scenario has run out of items."
+      },
+      "VocabBatchItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "phrase": {
+            "type": "string",
+            "title": "Phrase"
+          },
+          "translation": {
+            "type": "string",
+            "title": "Translation"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "phrase",
+          "translation"
+        ],
+        "title": "VocabBatchItem",
+        "description": "One Vocab Item in a Vocab Task's batch, with its English translation."
       }
     },
     "securitySchemes": {
