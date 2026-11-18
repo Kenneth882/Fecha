@@ -7,7 +7,7 @@ from httpx import AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.auth import GOOD_PASSWORD, RegisteredUser, log_in, register
+from tests.auth import GOOD_PASSWORD, TOKEN_RESPONSE_KEYS, RegisteredUser, log_in, register
 from tests.conftest import TEST_JWT_SECRET
 
 ME = "/api/v1/auth/me"
@@ -22,13 +22,7 @@ async def test_logging_in_with_correct_credentials_returns_bearer_and_refresh_to
 
     assert response.status_code == 200
     body = response.json()
-    assert set(body) == {
-        "access_token",
-        "token_type",
-        "expires_in",
-        "refresh_token",
-        "refresh_expires_in",
-    }
+    assert set(body) == TOKEN_RESPONSE_KEYS
     assert body["token_type"] == "bearer"
     assert body["expires_in"] == 30 * 60
     assert isinstance(body["access_token"], str) and body["access_token"]

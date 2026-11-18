@@ -10,7 +10,7 @@ from app.core.errors import error_responses
 from app.models.user import User
 from app.schemas.auth import LoginRequest, RefreshTokenRequest, TokenResponse
 from app.schemas.user import UserCreate, UserRead
-from app.services import sessions
+from app.services import refresh_tokens
 from app.services.auth import authenticate
 from app.services.users import register_user
 
@@ -42,7 +42,7 @@ async def login(
     """Exchange an email and password for a short-lived access token and a refresh
     token, starting a new session. Needs no auth."""
     user = await authenticate(session, data.email, data.password)
-    return await sessions.start_session(session, user, now, settings)
+    return await refresh_tokens.issue_for_login(session, user, now, settings)
 
 
 @router.post("/refresh", responses=error_responses(status.HTTP_401_UNAUTHORIZED))
@@ -54,7 +54,7 @@ async def refresh(
 ) -> TokenResponse:
     """Swap a refresh token for a new access token and a new refresh token; the one sent
     stops working. Reusing an old one ends every session of its User. Needs no auth."""
-    return await sessions.refresh_session(session, data.refresh_token, now, settings)
+    return await refresh_tokens.rotate(session, data.refresh_token, now, settings)
 
 
 @protected_router.post(
@@ -70,7 +70,7 @@ async def logout(
 ) -> None:
     """End the session the refresh token belongs to, so none of its refresh tokens work
     again. The access token still works until it expires."""
-    await sessions.end_session(session, user, data.refresh_token, now)
+    await refresh_tokens.revoke_family(session, user, data.refresh_token, now)
 
 
 @protected_router.get("/me")

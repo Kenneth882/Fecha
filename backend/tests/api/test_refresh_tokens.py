@@ -7,7 +7,7 @@ from httpx import AsyncClient, Response
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from tests.auth import RegisteredUser, log_in, register_and_log_in
+from tests.auth import TOKEN_RESPONSE_KEYS, RegisteredUser, log_in, register_and_log_in
 from tests.conftest import Clock
 
 REFRESH = "/api/v1/auth/refresh"
@@ -56,13 +56,7 @@ async def test_refreshing_returns_a_working_access_token_and_a_new_refresh_token
 
     assert response.status_code == 200
     body = response.json()
-    assert set(body) == {
-        "access_token",
-        "token_type",
-        "expires_in",
-        "refresh_token",
-        "refresh_expires_in",
-    }
+    assert set(body) == TOKEN_RESPONSE_KEYS
     assert body["refresh_token"] != user.refresh_token
     me = await client.get(ME, headers={"Authorization": f"Bearer {body['access_token']}"})
     assert me.status_code == 200

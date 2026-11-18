@@ -282,7 +282,7 @@ backend/
 │   │   ├── local_time.py  # UTC moment + IANA timezone → the User's local today, pure
 │   │   ├── planner.py     # backward planning algorithm, pure Python
 │   │   ├── seed_vocab.py  # reads the seed vocabulary file and upserts it into vocab_items
-│   │   ├── sessions.py    # login sessions: issue, rotate and revoke refresh tokens
+│   │   ├── refresh_tokens.py  # issue, rotate and revoke refresh tokens (ADR 0007)
 │   │   ├── srs.py         # deadline-compressed SM-2 scheduler, pure Python
 │   │   ├── tasks.py       # open a Vocab Task (fix its batch) and complete it (introduce it)
 │   │   ├── llm.py         # plan/scenario generation (planned)

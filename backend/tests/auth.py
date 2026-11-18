@@ -6,6 +6,14 @@ from typing import Any
 from httpx import AsyncClient, Response
 
 REGISTER = "/api/v1/auth/register"
+# What /auth/login and /auth/refresh both return.
+TOKEN_RESPONSE_KEYS = {
+    "access_token",
+    "token_type",
+    "expires_in",
+    "refresh_token",
+    "refresh_expires_in",
+}
 LOGIN = "/api/v1/auth/login"
 
 # Long, with a digit and a special character, and on no common-password list.
