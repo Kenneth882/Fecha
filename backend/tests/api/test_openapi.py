@@ -137,3 +137,17 @@ def test_event_routes_document_their_errors(settings: Settings) -> None:
 
     assert {"401", "409", "422"} <= set(by_route[("POST", "/api/v1/events")]["responses"])
     assert {"401", "404", "422"} <= set(by_route[("GET", "/api/v1/events/{event_id}")]["responses"])
+
+
+def test_refresh_and_logout_operation_ids_and_errors(settings: Settings) -> None:
+    by_route = {(method, path): op for method, path, op in operations(settings)}
+    refresh = by_route[("POST", "/api/v1/auth/refresh")]
+    logout = by_route[("POST", "/api/v1/auth/logout")]
+
+    assert refresh["operationId"] == "auth-refresh"
+    assert logout["operationId"] == "auth-logout"
+    assert {"401", "422"} <= set(refresh["responses"])
+    assert {"204", "401", "422"} <= set(logout["responses"])
+    # Refresh is public, so the generated client sends no token; logout needs one.
+    assert "security" not in refresh
+    assert logout["security"] == [{"HTTPBearer": []}]

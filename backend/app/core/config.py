@@ -1,3 +1,4 @@
+from datetime import timedelta
 from pathlib import Path
 from typing import Literal
 
@@ -25,8 +26,13 @@ class Settings(BaseSettings):
 
     # Required, no default: the app must never sign tokens with a guessable key.
     jwt_secret: SecretStr = Field(min_length=32)
-    # How long an access token stays valid. There are no refresh tokens: log in again.
+    # How long an access token stays valid. Short, so it never needs revoking; a
+    # refresh token gets a new one (ADR 0007).
     access_token_expire_minutes: int = Field(default=30, gt=0)
+    # A refresh token's session ends after this many days without a refresh...
+    refresh_token_idle_days: int = Field(default=30, gt=0)
+    # ...and this many days after its first login, however often it's used.
+    refresh_token_absolute_days: int = Field(default=90, gt=0)
 
     # e.g. postgresql+asyncpg://user:password@host:5432/dbname
     database_url: SecretStr
@@ -40,6 +46,14 @@ class Settings(BaseSettings):
 
     # Level for the app's JSON logs (the per-request access line is INFO).
     log_level: LogLevel = "INFO"
+
+    @property
+    def refresh_token_idle(self) -> timedelta:
+        return timedelta(days=self.refresh_token_idle_days)
+
+    @property
+    def refresh_token_absolute(self) -> timedelta:
+        return timedelta(days=self.refresh_token_absolute_days)
 
 
 def load_settings(env_file: Path | None = ROOT_ENV_FILE) -> Settings:

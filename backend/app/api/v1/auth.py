@@ -1,15 +1,16 @@
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.core.deps import get_current_user, get_db, get_settings
+from app.core.deps import get_current_user, get_db, get_now, get_settings
 from app.core.errors import error_responses
-from app.core.security import create_access_token
 from app.models.user import User
-from app.schemas.auth import LoginRequest, TokenResponse
+from app.schemas.auth import LoginRequest, RefreshTokenRequest, TokenResponse
 from app.schemas.user import UserCreate, UserRead
+from app.services import sessions
 from app.services.auth import authenticate
 from app.services.users import register_user
 
@@ -36,11 +37,40 @@ async def login(
     data: LoginRequest,
     session: Annotated[AsyncSession, Depends(get_db)],
     settings: Annotated[Settings, Depends(get_settings)],
+    now: Annotated[datetime, Depends(get_now)],
 ) -> TokenResponse:
-    """Exchange an email and password for a short-lived access token. Needs no auth."""
+    """Exchange an email and password for a short-lived access token and a refresh
+    token, starting a new session. Needs no auth."""
     user = await authenticate(session, data.email, data.password)
-    token = create_access_token(user.id, settings)
-    return TokenResponse(access_token=token.token, expires_in=token.expires_in)
+    return await sessions.start_session(session, user, now, settings)
+
+
+@router.post("/refresh", responses=error_responses(status.HTTP_401_UNAUTHORIZED))
+async def refresh(
+    data: RefreshTokenRequest,
+    session: Annotated[AsyncSession, Depends(get_db)],
+    settings: Annotated[Settings, Depends(get_settings)],
+    now: Annotated[datetime, Depends(get_now)],
+) -> TokenResponse:
+    """Swap a refresh token for a new access token and a new refresh token; the one sent
+    stops working. Reusing an old one ends every session of its User. Needs no auth."""
+    return await sessions.refresh_session(session, data.refresh_token, now, settings)
+
+
+@protected_router.post(
+    "/logout",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=error_responses(status.HTTP_422_UNPROCESSABLE_CONTENT),
+)
+async def logout(
+    data: RefreshTokenRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db)],
+    now: Annotated[datetime, Depends(get_now)],
+) -> None:
+    """End the session the refresh token belongs to, so none of its refresh tokens work
+    again. The access token still works until it expires."""
+    await sessions.end_session(session, user, data.refresh_token, now)
 
 
 @protected_router.get("/me")

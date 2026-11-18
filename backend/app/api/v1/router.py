@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 from app.api.v1 import auth, events, health, tasks
 from app.core.deps import get_current_user
 
-# Routes that need no auth: /health and /auth/* (except /auth/me).
+# Routes that need no auth: /health and /auth/register, /auth/login and /auth/refresh.
 public_router = APIRouter(prefix="/api/v1")
 public_router.include_router(health.router)
 public_router.include_router(auth.router)

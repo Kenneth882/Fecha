@@ -13,7 +13,7 @@ from tests.conftest import TEST_JWT_SECRET
 ME = "/api/v1/auth/me"
 
 
-async def test_logging_in_with_correct_credentials_returns_a_bearer_token(
+async def test_logging_in_with_correct_credentials_returns_bearer_and_refresh_tokens(
     client: AsyncClient,
 ) -> None:
     await register(client, email="ana@example.com")
@@ -22,7 +22,13 @@ async def test_logging_in_with_correct_credentials_returns_a_bearer_token(
 
     assert response.status_code == 200
     body = response.json()
-    assert set(body) == {"access_token", "token_type", "expires_in"}
+    assert set(body) == {
+        "access_token",
+        "token_type",
+        "expires_in",
+        "refresh_token",
+        "refresh_expires_in",
+    }
     assert body["token_type"] == "bearer"
     assert body["expires_in"] == 30 * 60
     assert isinstance(body["access_token"], str) and body["access_token"]

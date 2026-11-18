@@ -17,9 +17,21 @@ class LoginRequest(BaseModel):
 
 
 class TokenResponse(BaseModel):
-    """A short-lived access token, sent as `Authorization: Bearer <access_token>`."""
+    """A short-lived access token, sent as `Authorization: Bearer <access_token>`, and
+    the refresh token that gets the next one from `/auth/refresh` (ADR 0007)."""
 
     access_token: str
     token_type: Literal["bearer"] = "bearer"
-    # Seconds until the token expires.
+    # Seconds until the access token expires.
     expires_in: int
+    # Single use: each refresh returns a new one and revokes this one.
+    refresh_token: str
+    # Seconds until the refresh token expires if it isn't used first.
+    refresh_expires_in: int
+
+
+class RefreshTokenRequest(BaseModel):
+    """A refresh token, sent to `/auth/refresh` to rotate it or `/auth/logout` to revoke it."""
+
+    # Real tokens are 43 characters; the cap keeps junk input small.
+    refresh_token: Annotated[str, StringConstraints(max_length=128)]

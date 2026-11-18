@@ -38,6 +38,7 @@ class RegisteredUser:
 
     profile: dict[str, Any]
     token: str
+    refresh_token: str
 
     @property
     def headers(self) -> dict[str, str]:
@@ -55,4 +56,5 @@ async def register_and_log_in(client: AsyncClient, **overrides: Any) -> Register
     return RegisteredUser(
         profile=registered.json(),
         token=logged_in.json()["access_token"],
+        refresh_token=logged_in.json()["refresh_token"],
     )
