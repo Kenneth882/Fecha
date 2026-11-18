@@ -253,6 +253,7 @@ def _plan_rows(event: Event, draft: DraftPlan, *, version: int, generated_at: da
                         kind=t.kind,
                         position=t.position,
                         estimated_minutes=t.estimated_minutes,
+                        vocab_batch_size=t.vocab_batch_size,
                     )
                     for t in m.tasks
                 ],
@@ -276,6 +277,7 @@ def _today_task(task: Task, scenario_slug: str, today: date) -> TodayTask:
         scenario_title=_catalog_scenario(scenario_slug).title,
         kind=task.kind,
         estimated_minutes=task.estimated_minutes,
+        vocab_batch_size=task.vocab_batch_size,
         status=task_status(task.date, task.completed_at, today=today),
     )
 
@@ -304,6 +306,7 @@ def _plan_task(task: Task, today: date) -> PlanTask:
         kind=task.kind,
         position=task.position,
         estimated_minutes=task.estimated_minutes,
+        vocab_batch_size=task.vocab_batch_size,
         status=task_status(task.date, task.completed_at, today=today),
     )
 

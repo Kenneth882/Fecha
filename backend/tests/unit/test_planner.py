@@ -1,11 +1,13 @@
 from datetime import date, timedelta
 
 import pytest
+from pydantic import ValidationError
 
 from app.services.catalog import EventType
 from app.services.planner import (
     DailyBudget,
     DraftPlan,
+    DraftTask,
     Level,
     TaskKind,
     build_plan,
@@ -139,3 +141,47 @@ def test_b1_alternates_its_revisits_between_listening_and_speaking() -> None:
     # Listen on odd Plan Days, Speak on even ones, from Plan Day 1.
     revisit_kinds = [revisit_on(p, day(n))[1] for n in range(1, 7)]
     assert revisit_kinds == [L, S, L, S, L, S]
+
+
+def vocab_batches(p: DraftPlan) -> list[int | None]:
+    """Each Vocab Task's batch size, in Plan Day and position order."""
+    tasks = sorted(
+        (t for m in p.milestones for t in m.tasks if t.kind is V),
+        key=lambda t: (t.date, t.position),
+    )
+    return [t.vocab_batch_size for t in tasks]
+
+
+def test_the_12_day_demo_plans_vocab_batches_follow_their_minutes_uncapped() -> None:
+    # The demo: an interview at B1, 30 minutes a day. Its 14 Vocab Tasks (2 on each
+    # block's first day, 1 on its later days) are 6 minutes each, so 6 phrases each:
+    # 84 in all, well under the 120 a 30-minute Final Window can review.
+    p = plan(12, level=Level.B1, daily_budget=30)
+
+    assert vocab_batches(p) == [6] * 14
+
+
+def test_a_60_day_45_minute_plan_teaches_no_more_than_its_final_window_can_review() -> None:
+    # 64 Vocab Tasks at 8 or 9 minutes would be 512 phrases; two 12-minute Review
+    # allowances at about 8 seconds a Review cover 180 (ADR 0006).
+    batches = vocab_batches(plan(60, daily_budget=45))
+
+    assert len(batches) == 64
+    assert sum(b for b in batches if b is not None) == 180
+    # Shrunk evenly: 180 over 64 Tasks is 2 or 3 each, never fewer for a later Task.
+    assert set(batches) == {2, 3}
+    assert batches == sorted(batches, key=lambda b: b or 0)
+
+
+def test_listen_and_speak_tasks_have_no_batch() -> None:
+    p = plan(12, level=Level.B1, daily_budget=30)
+
+    assert all(t.vocab_batch_size is None for m in p.milestones for t in m.tasks if t.kind is not V)
+
+
+@pytest.mark.parametrize(("kind", "batch"), [(V, None), (L, 3), (S, 3)])
+def test_a_draft_task_has_a_batch_exactly_when_it_is_a_vocab_task(
+    kind: TaskKind, batch: int | None
+) -> None:
+    with pytest.raises(ValidationError, match="vocab_batch_size"):
+        DraftTask(date=START, kind=kind, position=1, estimated_minutes=5, vocab_batch_size=batch)

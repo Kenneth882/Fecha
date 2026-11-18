@@ -68,6 +68,8 @@ class PlanTask(BaseModel):
     # Milestone's own Tasks on that day may not start at 1.
     position: int
     estimated_minutes: int
+    # How many Vocab Items a Vocab Task teaches (ADR 0006); null for Listen and Speak.
+    vocab_batch_size: int | None
     status: TaskStatus
 
 
@@ -104,6 +106,8 @@ class TodayTask(BaseModel):
     scenario_title: str
     kind: TaskKind
     estimated_minutes: int
+    # How many Vocab Items a Vocab Task teaches (ADR 0006); null for Listen and Speak.
+    vocab_batch_size: int | None
     status: TaskStatus
 
 

@@ -89,6 +89,11 @@ class Task(Base):
     """One unit of planned practice on a Plan Day (`date`), for one Milestone."""
 
     __tablename__ = "tasks"
+    __table_args__ = (
+        CheckConstraint(
+            "(kind = 'vocab') = (vocab_batch_size IS NOT NULL)", name="vocab_batch_size"
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     milestone_id: Mapped[uuid.UUID] = mapped_column(
@@ -99,6 +104,9 @@ class Task(Base):
     # Orders the Task within its Plan Day, from 1.
     position: Mapped[int] = mapped_column(SmallInteger)
     estimated_minutes: Mapped[int] = mapped_column(SmallInteger)
+    # How many Vocab Items a Vocab Task teaches, set by the planner (ADR 0006). Required
+    # for Vocab Tasks and null for Listen and Speak Tasks, which the check enforces.
+    vocab_batch_size: Mapped[int | None] = mapped_column(SmallInteger)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     milestone: Mapped[Milestone] = relationship(back_populates="tasks", lazy="raise")

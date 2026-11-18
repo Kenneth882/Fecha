@@ -4,7 +4,7 @@ from collections import Counter
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from hypothesis import given
+from hypothesis import example, given
 from hypothesis import strategies as st
 
 from app.services.catalog import EventType, find_scenario
@@ -173,3 +173,23 @@ def test_the_4th_task_never_belongs_to_a_later_milestone_than_the_days_own(i: In
     for (d, position), milestone in owner.items():
         if position == 4 and d not in final_window(i):
             assert milestone <= owner[(d, 1)]
+
+
+# ADR 0006: what two Final Window days of Review allowance can review.
+VOCAB_CAP = {15: 60, 30: 120, 45: 180}
+
+
+@given(inputs())
+# The longest Plan at the smallest budget: 64 Vocab Tasks before the cap of 60 applies.
+@example(
+    Inputs(EventType.INTERVIEW, Level.A1, 15, date(2026, 1, 1), date(2026, 1, 1) + timedelta(60))
+)
+def test_a_plan_never_introduces_more_vocab_items_than_its_final_window_can_review(
+    i: Inputs,
+) -> None:
+    tasks = all_tasks(i.plan())
+    batches = [t.vocab_batch_size for t in tasks if t.kind is TaskKind.VOCAB]
+
+    assert all(b is not None and 1 <= b <= 8 for b in batches)
+    assert sum(b for b in batches if b is not None) <= VOCAB_CAP[i.daily_budget]
+    assert all(t.vocab_batch_size is None for t in tasks if t.kind is not TaskKind.VOCAB)

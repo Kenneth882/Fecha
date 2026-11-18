@@ -9,9 +9,9 @@ from datetime import date, timedelta
 from enum import StrEnum
 from fractions import Fraction
 from math import floor
-from typing import Literal, NamedTuple
+from typing import Literal, NamedTuple, Self
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from app.services.catalog import EventType, Scenario, scenarios_for
 
@@ -37,7 +37,11 @@ class TaskKind(StrEnum):
 
 
 class DraftTask(BaseModel):
-    """A planned Task, not yet stored. `position` orders it within its Plan Day, from 1."""
+    """A planned Task, not yet stored. `position` orders it within its Plan Day, from 1.
+
+    `vocab_batch_size` is how many Vocab Items a Vocab Task teaches (ADR 0006); it's
+    None for Listen and Speak Tasks.
+    """
 
     model_config = ConfigDict(frozen=True)
 
@@ -45,6 +49,13 @@ class DraftTask(BaseModel):
     kind: TaskKind
     position: int
     estimated_minutes: int
+    vocab_batch_size: int | None = None
+
+    @model_validator(mode="after")
+    def _batch_only_on_vocab(self) -> Self:
+        if (self.kind is TaskKind.VOCAB) != (self.vocab_batch_size is not None):
+            raise ValueError("A Vocab Task needs a vocab_batch_size; other Tasks have none")
+        return self
 
 
 class DraftMilestone(BaseModel):
@@ -74,6 +85,13 @@ ORDINARY_DAYS_PER_SCENARIO = 2.5
 # Minutes of each Daily Budget kept back for the Review Queue, which runs alongside the
 # Tasks (Week 3). The Tasks share whatever is left.
 _REVIEW_ALLOWANCE: dict[DailyBudget, int] = {15: 4, 30: 8, 45: 12}
+
+# A Vocab Task teaches about one Vocab Item a minute, within these bounds, unless the
+# Plan's `vocab_cap` makes it smaller (down to 1).
+MIN_VOCAB_BATCH = 3
+MAX_VOCAB_BATCH = 8
+# About how long one Review takes; the Final Window's capacity follows from it.
+_SECONDS_PER_REVIEW = 8
 
 _V, _L, _S = TaskKind.VOCAB, TaskKind.LISTEN, TaskKind.SPEAK
 _LATER_DAY = (_V, _L, _S)
@@ -141,6 +159,10 @@ def build_plan(
     the hardest Scenarios come first, then Listen Tasks for the ones not yet covered.
     No Milestone is spoken on its first day.
 
+    Each Vocab Task gets its `vocab_batch_size` from `vocab_batch_sizes`, so the Plan
+    introduces no more Vocab Items than its Final Window can review (ADR 0006). In the
+    rare Plan with more Vocab Tasks than that cap, the latest ones become Listen Tasks.
+
     Raises ValueError if `event_day` is fewer than 3 days after `start_date`, or the
     Daily Budget isn't one of 15, 30 or 45 minutes.
     """
@@ -186,6 +208,11 @@ def build_plan(
     final_window = [day + timedelta(days=n) for n in range(FINAL_WINDOW_DAYS)]
     _plan_final_window(final_window, _FINAL_WINDOW_DAY[:task_count], chosen, tasks)
 
+    _drop_vocab_past_the_cap(tasks, vocab_cap(daily_budget))
+    vocab = sorted((t for ts in tasks for t in ts if t.kind is _V), key=_plan_order)
+    sizes = vocab_batch_sizes([minutes[t.position - 1] for t in vocab], daily_budget)
+    batches = {_plan_order(t): size for t, size in zip(vocab, sizes, strict=True)}
+
     return DraftPlan(
         milestones=tuple(
             DraftMilestone(
@@ -198,8 +225,9 @@ def build_plan(
                         kind=t.kind,
                         position=t.position,
                         estimated_minutes=minutes[t.position - 1],
+                        vocab_batch_size=batches.get(_plan_order(t)),
                     )
-                    for t in sorted(milestone_tasks, key=lambda t: (t.date, t.position))
+                    for t in sorted(milestone_tasks, key=_plan_order)
                 ),
             )
             for position, (scenario, target_date, milestone_tasks) in enumerate(
@@ -207,6 +235,56 @@ def build_plan(
             )
         )
     )
+
+
+def vocab_cap(daily_budget: DailyBudget) -> int:
+    """The most Vocab Items a Plan introduces: what the Final Window's Review allowance
+    can review, at about 8 seconds a Review (ADR 0006). 60, 120 or 180."""
+    return FINAL_WINDOW_DAYS * review_allowance(daily_budget) * 60 // _SECONDS_PER_REVIEW
+
+
+def vocab_batch_sizes(minutes: list[int], daily_budget: DailyBudget) -> list[int]:
+    """How many Vocab Items each Vocab Task teaches, given their minutes in Plan order.
+
+    Each is one a minute, kept between 3 and 8. When that would take the Plan past its
+    `vocab_cap`, batches shrink evenly: each gets at most the cap still left divided by
+    the Vocab Tasks still left, rounded down, and never less than 1. With no more Vocab
+    Tasks than the cap (which `build_plan` ensures), the total stays within it.
+    """
+    left = vocab_cap(daily_budget)
+    sizes: list[int] = []
+    for i, task_minutes in enumerate(minutes):
+        by_minutes = min(max(task_minutes, MIN_VOCAB_BATCH), MAX_VOCAB_BATCH)
+        size = max(1, min(by_minutes, left // (len(minutes) - i)))
+        sizes.append(size)
+        left -= size
+    return sizes
+
+
+def _drop_vocab_past_the_cap(tasks: list[list[_Planned]], cap: int) -> None:
+    """Make the latest Vocab Tasks Listen Tasks until there are no more than `cap`.
+
+    Every Vocab Task teaches at least 1 Vocab Item, so a Plan with more Vocab Tasks
+    than its cap couldn't stay within it. Only the longest Plans at 15 minutes have
+    that many (up to 64, against a cap of 60). Their last days become practice, as
+    ADR 0006 intends for long Plans.
+    """
+    vocab = sorted(
+        (
+            (milestone_tasks[i], milestone_tasks, i)
+            for milestone_tasks in tasks
+            for i, t in enumerate(milestone_tasks)
+            if t.kind is _V
+        ),
+        key=lambda found: _plan_order(found[0]),
+    )
+    for task, milestone_tasks, i in vocab[cap:]:
+        milestone_tasks[i] = task._replace(kind=_L)
+
+
+def _plan_order(task: _Planned) -> tuple[date, int]:
+    """Sorts Tasks by Plan Day, then by position within the day."""
+    return task.date, task.position
 
 
 def _revisit_target(
