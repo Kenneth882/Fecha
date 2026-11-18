@@ -6,3 +6,9 @@ Every Introduced Vocab Item must be reviewed in the Final Window, and Reviews ha
 
 - **Let the Final Window go over the Daily Budget:** keeps long Plans phrase-rich, but the last two days, when the User has the least time, would need 40+ minutes of Reviews.
 - **Review only the most important items in the Final Window:** that's no longer a guarantee, and Retention would quietly decay for the rest.
+- **Lower the cap so each Final Window day fits on its own:** rejected; see Consequences.
+
+## Consequences
+
+- **The cap covers the two Final Window days together, not each day.** Items due the next day can't be moved to day 2. That covers items introduced or first reviewed on the last ordinary day, and items graded Again then. So in the worst case, day 1 can need about 1.3× its share of the Review allowance. Anything left over carries to day 2, so the guarantee still holds for a User who clears the queue. Getting a hard limit for each day would mean lowering the 45-minute cap from about 180 to about 150. Banning Vocab Tasks on the last ordinary day only moves the bulge back one day.
+- **More Vocab Tasks than the cap allows.** Very long 15-minute Plans (57–60 days) have 61–64 Vocab Tasks against a cap of 60, while every batch needs at least one item. The planner turns the latest surplus Vocab Tasks into Listen Tasks. Task counts, positions and minutes stay the same, and the converted Tasks fall on the hardest Milestone's last days.
