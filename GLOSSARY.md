@@ -84,7 +84,7 @@ One calendar day of a Plan, in the User's timezone.
 _Avoid_: Session, slot
 
 **Final Window**:
-The two Plan Days just before the Event Day. Every Introduced Vocab Item must be reviewed at least once in it, and no new Vocab Items are introduced in it.
+The two Plan Days just before the Event Day. Every Introduced Vocab Item must be reviewed at least once in it, and no new Vocab Items are introduced in it. A Plan never introduces more Vocab Items than its Review time in the Final Window can cover.
 _Avoid_: Last 48 hours, cram window
 
 **Task**:
@@ -92,13 +92,20 @@ One unit of planned practice on a Plan Day, for one Milestone. A Plan Day has 3�
 _Avoid_: Exercise, activity, lesson
 
 **Vocab Task**:
-A Task that introduces a batch of new Vocab Items from its Milestone's Scenario.
+A Task that introduces a batch of new Vocab Items from its Milestone's Scenario. The batch is bigger when the Task has more time, and it stays the same each time the Task is opened.
 
 **Listen Task**:
 A Task in which the User hears a short dialogue set in its Milestone's Scenario and answers three comprehension questions. It's complete once all three are answered.
 
 **Speak Task**:
 A Task that the User completes by doing a Roleplay Session for its Milestone.
+
+**Kept Day**:
+A Plan Day on which the User completed every Task and emptied the Review Queue before local midnight.
+
+**Streak**:
+The number of consecutive Kept Days up to today. Today doesn't break it while it's still in progress, and any Plan Day that isn't kept resets it to 0.
+_Avoid_: Chain, run
 
 **Missed Task**:
 A Task left incomplete after its Plan Day has ended. It's never completed afterwards.
@@ -107,26 +114,26 @@ _Avoid_: Skipped task, overdue task
 ### Practice
 
 **Vocab Item**:
-A phrase in a target language, with its translation, belonging to a Scenario. Shared across Users.
+A phrase in a target language, with its translation, belonging to a Scenario. Shared across Users. It suits every Level unless it's made for a particular one.
 _Avoid_: Word, card, flashcard, term
 
 **Introduced Vocab Item**:
-A Vocab Item that a Vocab Task has presented to the User for the Active Event. Only Introduced Vocab Items get Reviews.
+A Vocab Item from a Vocab Task the User has completed for the Active Event. Opening the Task doesn't introduce anything, and a Missed Vocab Task never introduces its items. Only Introduced Vocab Items get Reviews.
 
 **Review State**:
 The spaced-repetition progress of one Introduced Vocab Item within one Event. Each Event starts fresh; nothing carries over between Events.
 _Avoid_: Card state, memory, progress
 
 **Review**:
-One recall of a Vocab Item that the User grades themselves, from 0 to 5. Reviews are scheduled by spaced repetition and are not Tasks.
+One recall of a Vocab Item that the User grades themselves, from 0 to 5. Reviews are scheduled for a Plan Day by spaced repetition and are not Tasks. An Introduced Vocab Item's first Review is the day after it's introduced.
 _Avoid_: Drill, quiz, practice
 
 **Grade**:
-The 0–5 recall rating on a Review. The User chooses one of Again, Hard, Good or Easy.
+The 0–5 recall rating on a Review. The User chooses one of Again (1), Hard (3), Good (4) or Easy (5). Only Again counts as forgotten, and a forgotten item comes back the next day.
 _Avoid_: Score, rating
 
 **Review Queue**:
-The Vocab Items due for Review now. It runs alongside a Plan Day's Tasks and doesn't count toward them.
+The Vocab Items whose Reviews are due today or earlier, oldest first. It runs alongside a Plan Day's Tasks and doesn't count toward them. An overdue Review stays in it until it's done, because Reviews are never Missed. It's empty on the Event Day and for Past Events.
 _Avoid_: Due list, backlog
 
 **Roleplay Session**:

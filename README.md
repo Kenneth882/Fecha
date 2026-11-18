@@ -284,7 +284,7 @@ web/                       # Next.js + TypeScript PWA (planned)
 Part-time build (~10–15 h/week). Each week ends with something running and tested.
 
 - [x] **Week 1 — Foundation:** uv/ruff/mypy/pre-commit, Docker Compose, config + async DB + Alembic, User + JWT auth, GitHub Actions CI
-- [ ] **Week 2 — Events & template planner:** Event/Plan/Milestone/Task models, Event CRUD, template-based `planner.py`, `GET /events/{id}/today`
+- [x] **Week 2 — Events & template planner:** Event/Plan/Milestone/Task models, Event CRUD, template-based `planner.py`, `GET /events/{id}/today`
 - [ ] **Week 3 — Spaced repetition:** VocabItem/ReviewState, `srs.py` + property tests, review endpoints, Spanish seed vocab, Next.js onboarding + daily practice
 - [ ] **Week 4 — LLM generation:** `llm.py` with instructor, arq worker, retries/fallback/Redis cache, fake-LLM test override
 - [ ] **Week 5 — Roleplay (text):** WebSocket text turns, per-milestone scenario prompts, transcript + feedback
