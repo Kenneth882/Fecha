@@ -20,9 +20,11 @@ x-backend: &backend
 services:
   api:
     <<: *backend
-    # Migrate before serving, so a fresh database is ready without manual steps.
+    # Migrate and load the seed vocabulary before serving, so a fresh database is
+    # ready without manual steps. Both are safe to re-run on every start.
     command: >-
       sh -c "alembic upgrade head &&
+      python -m app.load_seed_vocab &&
       exec uvicorn --factory app.main:create_app --host 0.0.0.0 --port 8000 --no-access-log"
     ports:
       - "8000:8000"
