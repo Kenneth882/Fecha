@@ -55,34 +55,82 @@ async def test_a_new_events_plan_lists_its_milestones_and_tasks_in_order(
             {
                 "date": "2026-11-10",
                 "tasks": [
-                    {"kind": "vocab", "position": 1, "estimated_minutes": 6, "status": "pending"},
-                    {"kind": "vocab", "position": 2, "estimated_minutes": 6, "status": "pending"},
-                    {"kind": "listen", "position": 3, "estimated_minutes": 5, "status": "pending"},
-                    {"kind": "listen", "position": 4, "estimated_minutes": 5, "status": "pending"},
+                    {
+                        "kind": "vocab",
+                        "position": 1,
+                        "estimated_minutes": 6,
+                        "vocab_batch_size": 6,
+                        "status": "pending",
+                    },
+                    {
+                        "kind": "vocab",
+                        "position": 2,
+                        "estimated_minutes": 6,
+                        "vocab_batch_size": 6,
+                        "status": "pending",
+                    },
+                    {
+                        "kind": "listen",
+                        "position": 3,
+                        "estimated_minutes": 5,
+                        "vocab_batch_size": None,
+                        "status": "pending",
+                    },
+                    {
+                        "kind": "listen",
+                        "position": 4,
+                        "estimated_minutes": 5,
+                        "vocab_batch_size": None,
+                        "status": "pending",
+                    },
                 ],
             },
             {
                 "date": "2026-11-11",
                 "tasks": [
-                    {"kind": "speak", "position": 4, "estimated_minutes": 5, "status": "pending"}
+                    {
+                        "kind": "speak",
+                        "position": 4,
+                        "estimated_minutes": 5,
+                        "vocab_batch_size": None,
+                        "status": "pending",
+                    }
                 ],
             },
             {
                 "date": "2026-11-12",
                 "tasks": [
-                    {"kind": "listen", "position": 4, "estimated_minutes": 5, "status": "pending"}
+                    {
+                        "kind": "listen",
+                        "position": 4,
+                        "estimated_minutes": 5,
+                        "vocab_batch_size": None,
+                        "status": "pending",
+                    }
                 ],
             },
             {
                 "date": "2026-11-20",
                 "tasks": [
-                    {"kind": "listen", "position": 4, "estimated_minutes": 5, "status": "pending"}
+                    {
+                        "kind": "listen",
+                        "position": 4,
+                        "estimated_minutes": 5,
+                        "vocab_batch_size": None,
+                        "status": "pending",
+                    }
                 ],
             },
             {
                 "date": "2026-11-21",
                 "tasks": [
-                    {"kind": "listen", "position": 4, "estimated_minutes": 5, "status": "pending"}
+                    {
+                        "kind": "listen",
+                        "position": 4,
+                        "estimated_minutes": 5,
+                        "vocab_batch_size": None,
+                        "status": "pending",
+                    }
                 ],
             },
         ],
