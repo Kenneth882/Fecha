@@ -92,7 +92,7 @@ One unit of planned practice on a Plan Day, for one Milestone. A Plan Day has 3â
 _Avoid_: Exercise, activity, lesson
 
 **Vocab Task**:
-A Task that introduces a batch of new Vocab Items from its Milestone's Scenario. The batch is bigger when the Task has more time, and it stays the same each time the Task is opened.
+A Task that introduces a batch of new Vocab Items from its Milestone's Scenario. The batch is bigger when the Task has more time, and it stays the same each time the Task is opened. It's drawn from the Scenario's Vocab Items that suit the Event's Level, skipping items already introduced for the Event and items in another of its Vocab Tasks' batches, unless that Task was Missed, so two Vocab Tasks never teach the same item. It can be completed only on its own Plan Day.
 
 **Listen Task**:
 A Task in which the User hears a short dialogue set in its Milestone's Scenario and answers three comprehension questions. It's complete once all three are answered.
