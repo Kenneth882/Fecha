@@ -249,6 +249,26 @@ async def test_completing_a_missed_task_is_a_409_and_introduces_nothing(
     assert await review_states(db_session) == []
 
 
+async def test_completing_a_task_of_a_later_plan_day_is_a_409_and_introduces_nothing(
+    client: AsyncClient, user: RegisteredUser, clock: Clock, db_session: AsyncSession
+) -> None:
+    await add_items(db_session, INTRODUCING_YOURSELF, 20)
+    event = (await create_event(client, user)).json()
+    clock.now = datetime(2026, 11, 11, 12, 0, tzinfo=UTC)
+    tomorrow = next(t for t in await tasks_today(client, user, event["id"]) if t["kind"] == "vocab")
+    clock.now = FIXED_NOW
+
+    response = await client.post(f"{TASKS}/{tomorrow['id']}/complete", headers=user.headers)
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "task_in_future"
+    assert await review_states(db_session) == []
+    # It can be completed once its Plan Day comes.
+    clock.now = datetime(2026, 11, 11, 12, 0, tzinfo=UTC)
+    response = await client.post(f"{TASKS}/{tomorrow['id']}/complete", headers=user.headers)
+    assert response.status_code == 200
+
+
 async def test_opening_a_missed_task_for_the_first_time_shows_no_batch_and_fixes_none(
     client: AsyncClient, user: RegisteredUser, clock: Clock, db_session: AsyncSession
 ) -> None:

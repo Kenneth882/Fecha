@@ -45,6 +45,12 @@ class TaskMissedError(AppError):
     message = "This Task was missed: its Plan Day has ended, so it can't be completed"
 
 
+class TaskInFutureError(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "task_in_future"
+    message = "This Task is for a later Plan Day: it can be completed from that day"
+
+
 async def open_vocab_task(
     session: AsyncSession, user: User, task_id: uuid.UUID, now: datetime
 ) -> VocabBatch:
@@ -78,8 +84,9 @@ async def complete_task(
     `srs.introduce`, first due the next day. Idempotent: completing it again changes
     nothing and returns the same answer, even once the Event is past. Raises
     TaskNotFoundError and NotAVocabTaskError as `open_vocab_task` does,
-    EventAlreadyPastError for a Past Event's Task, and TaskMissedError for a Missed
-    Task.
+    EventAlreadyPastError for a Past Event's Task, TaskMissedError for a Missed
+    Task, and TaskInFutureError for a Task of a later Plan Day, whose items would
+    otherwise be introduced ahead of the Plan.
     """
     task, event, scenario_slug = await _own_vocab_task(session, user, task_id)
     await _lock_event(session, event, task)
@@ -94,6 +101,8 @@ async def complete_task(
         raise EventAlreadyPastError
     if task_status(task.date, task.completed_at, today=today) is TaskStatus.MISSED:
         raise TaskMissedError
+    if task.date > today:
+        raise TaskInFutureError
     if task.vocab_batch_fixed_at is None:
         await _fix_batch(session, task, event, scenario_slug, today, now)
         await session.flush()
