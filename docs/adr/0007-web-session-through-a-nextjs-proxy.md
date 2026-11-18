@@ -5,7 +5,9 @@ The browser never holds a token where JavaScript can read it. The web app's Next
 Access tokens stay short-lived (30 minutes) so they never need revoking. Users stay logged in through a refresh token instead:
 - It's random, stored hashed in Postgres, and rotated on every use.
 - A session ends after 30 days of inactivity, with a hard cap of 90 days.
-- If an old refresh token is used again, that's treated as theft, and every session for that User is revoked.
+- If an old refresh token is used again, that's treated as theft, and every session for that User is revoked. Two exceptions keep real Users from being logged out everywhere by accident:
+  - A token swapped by a refresh less than 30 seconds ago (`REFRESH_TOKEN_REUSE_GRACE_SECONDS`) gets a new token of its own, because two tabs or a retry racing one refresh look exactly like reuse. If its session has been logged out since, it's just refused.
+  - An expired token is just refused, since it can't refresh anything.
 - Logout revokes the token on the server, not just in the browser.
 
 The proxy refreshes silently before the access token expires, so a User preparing for an Event over several weeks isn't asked to log in every 30 minutes.
