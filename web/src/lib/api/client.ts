@@ -4,14 +4,14 @@ import type { paths } from "./schema";
 
 /**
  * A typed client for FastAPI, for server-side code only (Server Components, route
- * handlers). Browser code never calls FastAPI: it calls this app's own `/api/v1`, which
- * the Next.js server proxies (ADR 0007).
+ * handlers). Browser code never calls FastAPI: it will call this app's own `/api/v1`,
+ * which the Next.js server proxies (ADR 0007; the proxy lands in #47).
  *
  * The types in ./schema.ts are generated from the API's OpenAPI schema by
  * `npm run generate:api`; never edit them by hand.
  */
-export function createApiClient(baseUrl: string = apiUrl()) {
-  return createClient<paths>({ baseUrl });
+export function createApiClient() {
+  return createClient<paths>({ baseUrl: apiUrl() });
 }
 
 /** FastAPI's address, e.g. `http://api:8000` in compose. Never exposed to the browser. */

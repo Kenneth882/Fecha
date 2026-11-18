@@ -1,15 +1,15 @@
 import { createApiClient } from "@/lib/api/client";
 
+import { site } from "./site";
+
 // A placeholder until the login, onboarding and Today screens land (#47-#50).
 export default async function Home() {
   const apiUp = await apiIsLive();
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-4 px-4 py-12">
-      <h1 className="text-3xl font-semibold tracking-tight">CramPlan</h1>
-      <p className="text-lg">
-        A day-by-day cram plan for one real event, by one fixed date.
-      </p>
+      <h1 className="text-3xl font-semibold tracking-tight">{site.name}</h1>
+      <p className="text-lg">{site.tagline}</p>
       <p className="text-sm opacity-70">
         API: <span data-testid="api-status">{apiUp ? "up" : "unreachable"}</span>
       </p>

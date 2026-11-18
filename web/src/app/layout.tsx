@@ -1,19 +1,20 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { site } from "./site";
 
 // Every page is rendered per request, so each response's scripts carry the nonce from
 // its Content-Security-Policy (see src/proxy.ts).
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "CramPlan",
-  description: "A day-by-day cram plan for one real event, by one fixed date.",
-  applicationName: "CramPlan",
-  appleWebApp: { capable: true, title: "CramPlan", statusBarStyle: "default" },
+  title: site.name,
+  description: site.tagline,
+  applicationName: site.name,
+  appleWebApp: { capable: true, title: site.name, statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#1d4ed8",
+  themeColor: site.themeColor,
   width: "device-width",
   initialScale: 1,
 };
