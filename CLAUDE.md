@@ -11,7 +11,7 @@ This is a portfolio SWE project built over an 8-week plan (see Roadmap in `READM
 ## Stack
 
 - **Backend:** Python, FastAPI, Pydantic v2, SQLAlchemy 2.0 async + asyncpg, Alembic, Postgres, Redis, arq, instructor, PyJWT + passlib
-- **Frontend:** Next.js + TypeScript PWA in `web/`, calling the API through a TypeScript client **generated from FastAPI's OpenAPI schema** (never hand-write API types)
+- **Frontend:** Next.js (App Router) + TypeScript + Tailwind PWA in `web/`, calling the API through a TypeScript client **generated from FastAPI's OpenAPI schema** (`openapi-typescript` types in `web/src/lib/api/schema.ts` + `openapi-fetch`; never hand-write API types). After changing API routes or schemas, run `npm run generate:api` in `web/`; CI fails if the committed client is stale
 - **Storage:** S3 or Cloudflare R2 for audio and transcripts
 - **Tooling:** uv, ruff, mypy, pre-commit, Docker Compose, GitHub Actions
 
@@ -34,9 +34,19 @@ uv run pytest tests/unit                       # pure-logic tests only (fast, no
 uv run pytest --cov=app/services               # coverage (target 80%+ on services)
 uv run ruff check . --fix && uv run ruff format .
 uv run mypy app
+uv run python -m app.export_openapi [PATH]    # print (or write) the OpenAPI schema; needs no config, DB or Redis
 ```
 
-Always use `uv run` / `uv add` — never `pip install`.
+The web app, run from `web/` (npm; Node version in `web/.nvmrc`):
+
+```bash
+npm ci                                         # install the pinned deps
+API_URL=http://localhost:8000 npm run dev      # web on :3000; API_URL is read only by the Next.js server
+npm run generate:api                           # regenerate the API client (openapi.json + schema.ts) from the backend
+npm run lint && npm run typecheck && npm test && npm run build
+```
+
+Always use `uv run` / `uv add` — never `pip install`. In `web/`, pin exact versions (`.npmrc` sets `save-exact`).
 
 ## Architecture rules
 
@@ -46,7 +56,7 @@ Always use `uv run` / `uv add` — never `pip install`.
 - **Schemas vs models:** `schemas/` holds Pydantic request/response models; `models/` holds SQLAlchemy tables. Don't return ORM objects directly from routes without a response schema.
 - **Dependencies:** get the DB session and current user via `Depends(get_db)` / `Depends(get_current_user)` from `core/deps.py`. `get_db` is a `yield` dependency.
 - **Config:** all settings come from `core/config.py` (pydantic-settings). Locally they're read from env vars plus the single repo-root `.env`; containers get real env vars from compose, not files. No hardcoded URLs, keys or secrets; never commit `.env`.
-- **Composition roots:** only `create_app`, the arq worker's startup, `alembic/env.py` and the `app.seed` and `app.load_seed_vocab` entry points call `load_settings()`. Everything else receives `Settings` as a parameter or via `Depends(get_settings)` from `core/deps.py`. `app.main` has no module-level app: the API runs with `uvicorn --factory app.main:create_app`.
+- **Composition roots:** only `create_app`, the arq worker's startup, `alembic/env.py` and the `app.seed` and `app.load_seed_vocab` entry points call `load_settings()`. Everything else receives `Settings` as a parameter or via `Depends(get_settings)` from `core/deps.py`. `app.main` has no module-level app: the API runs with `uvicorn --factory app.main:create_app`. `app.export_openapi` is not a composition root: it builds the app with placeholder Settings, since the schema reads no setting, so it needs no `.env`.
 - **Long work goes to the worker.** Plan content generation (Vocab Items, Listen Task dialogues, roleplay prompts) and report generation run as arq jobs in `workers/tasks.py`, not in the request path. The Plan's schedule is not long work: `POST /events` builds it synchronously with the pure planner, in the same transaction as the Event, then enqueues content generation. The worker fills in content and never changes the schedule (ADR 0004).
 - **Plans are versioned.** Re-planning creates a new `Plan` version; it must never lose or overwrite completed tasks.
 - **Startup/shutdown** (DB engine, Redis pool, HTTP clients) goes in the `lifespan` context manager in `main.py`.
@@ -82,7 +92,7 @@ Always use `uv run` / `uv add` — never `pip install`.
 - Structured JSON logging with a request ID per call.
 - Security: hashed passwords, short-lived JWTs, no secrets in the repo.
 - Schema changes always go through an Alembic migration.
-- After changing API routes or schemas, regenerate the frontend TypeScript client.
+- After changing API routes or schemas, regenerate the frontend TypeScript client (`npm run generate:api` in `web/`) and commit it; CI's freshness check fails otherwise.
 
 ## Scope
 
