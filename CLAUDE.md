@@ -67,7 +67,7 @@ Always use `uv run` / `uv add` — never `pip install`.
 
 ## Testing
 
-- `tests/unit/` — pure-logic tests for `srs.py`, `planner.py`, `scoring.py`. Use **hypothesis** property tests for invariants (e.g. the 48-hour guarantee, no review scheduled after the event date, intervals non-increasing as deadline nears).
+- `tests/unit/` — pure-logic tests for `srs.py`, `planner.py`, `scoring.py`. Use **hypothesis** property tests for invariants (e.g. the 48-hour guarantee, no review scheduled after the event date, the interval cap never increases as the Event Day nears).
 - `tests/api/` — endpoint tests with `httpx.AsyncClient` and `app.dependency_overrides` to swap in a test DB and a **fake LLM**. Tests must never call real LLM, STT or TTS APIs.
 - One Playwright E2E test: onboarding → first task.
 - Add or update tests with every behavior change; run `pytest`, `ruff` and `mypy` before calling work done.

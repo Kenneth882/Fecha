@@ -1,7 +1,7 @@
 """The pure modules stay pure: no FastAPI, SQLAlchemy, Redis or network imports.
 
-CLAUDE.md keeps the planner (and the catalog it reads) free of I/O so it stays trivially
-testable. This checks the source rather than trusting review to notice.
+CLAUDE.md keeps the planner and the SRS scheduler (and the catalog they read) free of I/O
+so they stay trivially testable. This checks the source rather than trusting review to notice.
 """
 
 import ast
@@ -15,6 +15,7 @@ SERVICES = Path(__file__).parents[2] / "app" / "services"
 ALLOWED = {
     "catalog.py": {"pydantic"},
     "planner.py": {"pydantic", "app.services.catalog"},
+    "srs.py": {"pydantic", "app.services.planner"},
     "task_status.py": set(),
 }
 

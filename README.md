@@ -213,7 +213,13 @@ The API logs JSON lines to stdout. Each request writes one access line (`method`
 
 ### Scheduling algorithm
 
-_TBD — document the deadline-compression rule and the final-48-hour guarantee once `srs.py` lands._
+`services/srs.py` schedules each Introduced Vocab Item's Reviews. It's pure: it takes the Review State, the Grade, the Plan Day it was given on and the Event Day, and returns the new Review State.
+
+- **SM-2.** Grades are 0–5, and the four buttons map to Again = 1, Hard = 3, Good = 4, Easy = 5. Ease starts at 2.5 and changes by the standard SM-2 rule, `ease += 0.1 − (5 − g)(0.08 + 0.02(5 − g))`, with a floor of 1.3. Passing Grades (3 or more) give intervals of 1 day, then 6, then `interval × ease`, rounded half up. Again resets repetitions, counts a lapse and gives 1 day. An item's first Review is the day after it's introduced.
+- **Deadline compression.** `interval = min(SM-2 interval, max(1, ⌊days left before the Final Window ÷ 2⌋))`. The cap never increases as the Event Day nears, so with 9 days left before the Final Window no interval is longer than 4 days, and in the last 3 days before it every interval is 1 day.
+- **Final Window clamp.** The Final Window is the two Plan Days before the Event Day. When an item not yet reviewed there would come due on or after Final Window day 1, it's assigned day 1 or day 2, picked from a SHA-256 hash of its id. That spreads the load over both days and gives the same answer in every process. It's never due later than its natural due date, meaning this Review's SM-2 interval before the cap. So a forgotten or brand-new item still comes back the next day, and only items SM-2 would leave longer wait for day 2. A Grade given in the Final Window marks the item reviewed there. After that, Again on day 1 brings it back on day 2, and otherwise nothing more is due. Nothing is ever due on or after the Event Day.
+- **The guarantee.** A User who clears the Review Queue every day reviews every Introduced Vocab Item at least once in the Final Window, for any Plan dates and any Grades. `hypothesis` property tests check this in `tests/unit/test_srs_properties.py`, along with the cap, the Event Day bound, the ease floor and determinism.
+- **The cap on new items (ADR 0006).** Every Introduced Vocab Item needs a Review in the Final Window, and those Reviews have to fit in the Daily Budget's Review allowance. So a Plan introduces at most what two Final Window days can review: 60, 120 or 180 items at 15, 30 or 45 minutes a day, at about 8 seconds per Review.
 
 ### Readiness score formula
 
@@ -262,7 +268,7 @@ backend/
 │   │   ├── events.py      # create/read Events and their Plans; one Active Event per User
 │   │   ├── local_time.py  # UTC moment + IANA timezone → the User's local today, pure
 │   │   ├── planner.py     # backward planning algorithm, pure Python
-│   │   ├── srs.py         # deadline-compressed scheduler, pure Python (planned)
+│   │   ├── srs.py         # deadline-compressed SM-2 scheduler, pure Python
 │   │   ├── llm.py         # plan/scenario generation (planned)
 │   │   ├── voice.py       # STT/TTS pipeline (planned)
 │   │   └── scoring.py     # readiness score (planned)
