@@ -107,6 +107,28 @@ class Task(Base):
     # How many Vocab Items a Vocab Task teaches, set by the planner (ADR 0006). Required
     # for Vocab Tasks and null for Listen and Speak Tasks, which the check enforces.
     vocab_batch_size: Mapped[int | None] = mapped_column(SmallInteger)
+    # When a Vocab Task's batch was chosen, on first open or completion. Set even when
+    # the batch is empty (its Scenario had run out), so an empty batch stays fixed too.
+    vocab_batch_fixed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     milestone: Mapped[Milestone] = relationship(back_populates="tasks", lazy="raise")
+
+
+class VocabTaskItem(Base):
+    """One Vocab Item in a Vocab Task's batch, at its place in the batch (from 1).
+
+    Written once, when the batch is fixed, and never changed afterwards.
+    """
+
+    __tablename__ = "vocab_task_items"
+    __table_args__ = (
+        UniqueConstraint("task_id", "vocab_item_id"),
+        CheckConstraint("position >= 1", name="position"),
+    )
+
+    task_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tasks.id", ondelete="CASCADE"), primary_key=True
+    )
+    position: Mapped[int] = mapped_column(SmallInteger, primary_key=True)
+    vocab_item_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("vocab_items.id"), index=True)

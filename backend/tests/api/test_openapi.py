@@ -120,6 +120,18 @@ def test_event_operation_ids_are_tag_then_route_name(settings: Settings) -> None
     assert ids[("GET", "/api/v1/events/{event_id}")] == "events-get"
 
 
+def test_task_operation_ids_are_tag_then_route_name_and_document_their_errors(
+    settings: Settings,
+) -> None:
+    by_route = {(method, path): op for method, path, op in operations(settings)}
+    vocab = by_route[("GET", "/api/v1/tasks/{task_id}/vocab")]
+    complete = by_route[("POST", "/api/v1/tasks/{task_id}/complete")]
+
+    assert (vocab["operationId"], complete["operationId"]) == ("tasks-vocab", "tasks-complete")
+    for operation in (vocab, complete):
+        assert {"401", "404", "409", "422"} <= set(operation["responses"])
+
+
 def test_event_routes_document_their_errors(settings: Settings) -> None:
     by_route = {(method, path): op for method, path, op in operations(settings)}
 
