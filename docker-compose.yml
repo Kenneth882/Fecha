@@ -1,4 +1,4 @@
-# The full stack: cp .env.example .env && docker compose up
+# The full stack (web on :3000, api on :8000): cp .env.example .env && docker compose up
 # For backend development on the host, start only the services:
 #   docker compose up -d postgres redis
 
@@ -42,6 +42,17 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+
+  web:
+    build: ./web
+    environment:
+      # Read only by the Next.js server; the browser calls the web app's own origin.
+      API_URL: http://api:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
 
   postgres:
     image: postgres:17-alpine

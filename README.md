@@ -84,13 +84,13 @@ Goal: clone, run one command, and try the seeded demo in under 5 minutes.
 ```bash
 git clone https://github.com/Kenneth882/Fecha.git cramplan && cd cramplan
 cp .env.example .env          # the placeholders work as-is on your machine
-docker compose up             # api, worker, postgres, redis
+docker compose up             # web, api, worker, postgres, redis
 ```
 
 The api container applies migrations (`alembic upgrade head`) and loads the seed vocabulary (`python -m app.load_seed_vocab`) before it starts serving, so a fresh database needs no manual steps.
 
+- Web: http://localhost:3000 — a placeholder home page for now, showing whether it can reach the API; login, onboarding and Today land with the rest of Week 3
 - API: http://localhost:8000 — interactive docs at http://localhost:8000/docs, readiness at http://localhost:8000/api/v1/health/ready
-- Web: http://localhost:3000 (_TBD_, once `web/` lands)
 - Demo account: **"Job interview in Spanish, 12 days out"**. Seed it once the stack is up:
 
   ```bash
@@ -114,6 +114,20 @@ uv run arq app.workers.tasks.WorkerSettings   # in a second terminal
 uv run python -m app.seed                     # recreate the demo User and their Event
 ```
 
+### Local web development
+
+Node is pinned in `web/.nvmrc`; the package manager is npm, with exact versions in `package-lock.json`.
+
+```bash
+cd web
+npm ci
+API_URL=http://localhost:8000 npm run dev    # http://localhost:3000; needs the API running
+```
+
+`API_URL` is FastAPI's address. Only the Next.js server reads it: browser code calls the web app's own origin, never FastAPI (ADR 0007).
+
+**The API client is generated, never hand-written.** `npm run generate:api` exports the OpenAPI schema straight from `create_app()` (`uv run python -m app.export_openapi`, no server, database or `.env` needed), then `openapi-typescript` turns it into `web/src/lib/api/schema.ts`, which `openapi-fetch` uses. Run it after any change to the API's routes or schemas and commit both files; CI regenerates them and fails if anything differs.
+
 ### Tests and checks
 
 ```bash
@@ -122,7 +136,14 @@ uv run pytest                 # unit + API tests; needs postgres and redis runni
 uv run pytest --cov=app/services
 uv run ruff check . && uv run ruff format --check .
 uv run mypy app tests alembic
+
+cd ../web
+npm run lint && npm run typecheck && npm test && npm run build
 ```
+
+### Security headers
+
+Every web response carries `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: strict-origin-when-cross-origin`, set in `web/next.config.ts`. Pages also get a Content-Security-Policy from `web/src/proxy.ts`: `connect-src 'self'`, `frame-ancestors 'none'`, and scripts and styles only with a fresh per-request nonce (no `'unsafe-inline'`), which Next.js adds to its own tags. Nonces need per-request rendering, so every page is dynamic.
 
 ---
 
@@ -260,7 +281,7 @@ _TBD — e.g. arq vs. Celery, pipelined STT/LLM/TTS vs. realtime voice API, temp
 Entries marked _(planned)_ don't exist yet; they land with the roadmap weeks below.
 
 ```
-docker-compose.yml         # api, worker, postgres, redis (run from the repo root)
+docker-compose.yml         # web, api, worker, postgres, redis (run from the repo root)
 .env.example               # every setting, with local placeholders; copy to .env
 docker/postgres/init/      # first-run SQL: creates the cramplan_test database
 docs/adr/                  # architecture decision records
@@ -269,6 +290,7 @@ backend/
 ├── Dockerfile             # one image for the api and worker services
 ├── app/
 │   ├── main.py            # app factory, lifespan, middleware, routers
+│   ├── export_openapi.py  # prints the OpenAPI schema without a server, for the web client
 │   ├── core/              # config (pydantic-settings), deps (incl. the clock), JSON logging, middleware
 │   ├── db/                # async engine + sessionmaker, Redis client
 │   ├── models/            # SQLAlchemy tables
@@ -296,7 +318,17 @@ backend/
 │   ├── db/                # transactional test session, seed vocabulary loader
 │   └── workers/           # arq worker round-trip against test Redis
 └── pyproject.toml
-web/                       # Next.js + TypeScript PWA (planned)
+web/                       # Next.js (App Router) + TypeScript + Tailwind PWA, http://localhost:3000
+├── Dockerfile             # standalone Next.js server for the web service
+├── next.config.ts         # standalone output, frame/nosniff/referrer headers
+├── src/
+│   ├── proxy.ts           # per-request nonce Content-Security-Policy
+│   ├── app/               # pages, web manifest, icons
+│   └── lib/api/
+│       ├── openapi.json   # generated: the API's schema, from app.export_openapi
+│       ├── schema.ts      # generated: openapi-typescript types (never edit)
+│       └── client.ts      # openapi-fetch client, server-side only (API_URL)
+└── public/icons/          # install icons for the manifest
 ```
 
 ---
