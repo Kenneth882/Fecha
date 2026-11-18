@@ -7,7 +7,7 @@ It runs inside a transaction that's rolled back, like test_vocab_batch_size_migr
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from tests.db.test_vocab_batch_size_migration import MILESTONE_ID, PRE_MIGRATION_ROWS, run_step
+from tests.db.migrations import MILESTONE_ID, PRE_MIGRATION_ROWS, run_step
 
 REVISION = "7b9d6eed83c4"
 

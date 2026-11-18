@@ -50,18 +50,19 @@ async def open_vocab_task(
 ) -> VocabBatch:
     """One of the User's Vocab Tasks' batch, fixing it if this is the first open.
 
-    Introduces nothing. Raises TaskNotFoundError if there's no such Task or it's another
-    User's, and NotAVocabTaskError for a Listen or Speak Task.
+    Introduces nothing. A Task that can no longer be completed (Missed, or a Past
+    Event's) is read-only: it shows the batch fixed before, or none. Raises
+    TaskNotFoundError if there's no such Task or it's another User's, and
+    NotAVocabTaskError for a Listen or Speak Task.
     """
     task, event, scenario_slug = await _own_vocab_task(session, user, task_id)
     if task.vocab_batch_fixed_at is None:
         await _lock_event(session, event, task)
-        if task.vocab_batch_fixed_at is None:
-            await _fix_batch(
-                session, task, event, scenario_slug, local_today(now, user.timezone), now
-            )
+        today = local_today(now, user.timezone)
+        if task.vocab_batch_fixed_at is None and _can_complete(task, event, today):
+            await _fix_batch(session, task, event, scenario_slug, today, now)
             await session.commit()
-    items = await _batch(session, task)
+    items = await _fixed_batch_items(session, task)
     return VocabBatch(
         task_id=task.id,
         items=[VocabBatchItem(id=i.id, phrase=i.phrase, translation=i.translation) for i in items],
@@ -75,36 +76,48 @@ async def complete_task(
 
     Fixes the batch if it wasn't fixed yet, and gives each item a Review State from
     `srs.introduce`, first due the next day. Idempotent: completing it again changes
-    nothing and returns the same answer. Raises TaskNotFoundError and
-    NotAVocabTaskError as `open_vocab_task` does, EventAlreadyPastError for a Past
-    Event's Task, and TaskMissedError for a Missed Task.
+    nothing and returns the same answer, even once the Event is past. Raises
+    TaskNotFoundError and NotAVocabTaskError as `open_vocab_task` does,
+    EventAlreadyPastError for a Past Event's Task, and TaskMissedError for a Missed
+    Task.
     """
     task, event, scenario_slug = await _own_vocab_task(session, user, task_id)
     await _lock_event(session, event, task)
-    if task.completed_at is None:
-        today = local_today(now, user.timezone)
-        if event_state(event, today) is EventState.PAST:
-            raise EventAlreadyPastError
-        if task_status(task.date, task.completed_at, today=today) is TaskStatus.MISSED:
-            raise TaskMissedError
-        if task.vocab_batch_fixed_at is None:
-            await _fix_batch(session, task, event, scenario_slug, today, now)
-            await session.flush()
-        session.add_all(
-            ReviewState(
-                event_id=event.id,
-                vocab_item_id=item.id,
-                **srs.introduce(
-                    item.id, introduced_on=today, event_day=event.event_day
-                ).model_dump(),
-            )
-            for item in await _batch(session, task)
+    if task.completed_at is not None:
+        # A batch's items are introduced only by its own Task (see `_fix_batch`).
+        items = await _fixed_batch_items(session, task)
+        return TaskCompletion(
+            task_id=task.id, status=TaskStatus.COMPLETED, items_introduced=len(items)
         )
-        task.completed_at = now
-        await session.commit()
-    # A batch's items are introduced only by its own Task (see `_fix_batch`).
-    introduced = len(await _batch(session, task))
-    return TaskCompletion(task_id=task.id, status=TaskStatus.COMPLETED, items_introduced=introduced)
+    today = local_today(now, user.timezone)
+    if event_state(event, today) is EventState.PAST:
+        raise EventAlreadyPastError
+    if task_status(task.date, task.completed_at, today=today) is TaskStatus.MISSED:
+        raise TaskMissedError
+    if task.vocab_batch_fixed_at is None:
+        await _fix_batch(session, task, event, scenario_slug, today, now)
+        await session.flush()
+    items = await _fixed_batch_items(session, task)
+    session.add_all(
+        ReviewState(
+            event_id=event.id,
+            vocab_item_id=item.id,
+            **srs.introduce(item.id, introduced_on=today, event_day=event.event_day).model_dump(),
+        )
+        for item in items
+    )
+    task.completed_at = now
+    await session.commit()
+    return TaskCompletion(task_id=task.id, status=TaskStatus.COMPLETED, items_introduced=len(items))
+
+
+def _can_complete(task: Task, event: Event, today: date) -> bool:
+    """Whether `task` could still be completed on `today`: not Missed, and its Event
+    not past."""
+    return (
+        event_state(event, today) is not EventState.PAST
+        and task_status(task.date, task.completed_at, today=today) is not TaskStatus.MISSED
+    )
 
 
 async def _own_vocab_task(
@@ -144,7 +157,7 @@ async def _lock_event(session: AsyncSession, event: Event, task: Task) -> None:
     await session.refresh(task)
 
 
-async def _batch(session: AsyncSession, task: Task) -> list[VocabItem]:
+async def _fixed_batch_items(session: AsyncSession, task: Task) -> list[VocabItem]:
     """The Task's fixed batch, in order: empty if it isn't fixed yet."""
     rows = await session.scalars(
         select(VocabItem)

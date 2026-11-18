@@ -4,47 +4,14 @@ It runs on the test database inside a transaction that's rolled back: Postgres D
 transactional, so stepping the schema back and forth here leaves it as it was.
 """
 
-from collections.abc import Callable
-
 import pytest
-from alembic.migration import MigrationContext
-from alembic.operations import Operations
-from alembic.script import ScriptDirectory
-from sqlalchemy import Connection, text
+from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from tests.db.fixtures import alembic_config
+from tests.db.migrations import MILESTONE_ID, PRE_MIGRATION_ROWS, run_step
 
 REVISION = "f8492a3929de"
-MILESTONE_ID = "00000000-0000-0000-0000-000000000004"
-
-# A User, Event, Plan and Milestone, as stored before the migration.
-PRE_MIGRATION_ROWS = [
-    "INSERT INTO users (id, email, password_hash, native_language, timezone) VALUES "
-    "('00000000-0000-0000-0000-000000000001', 'm@example.com', 'x', 'en', 'Europe/Madrid')",
-    "INSERT INTO events (id, user_id, type, target_language, event_day, level, daily_budget, "
-    "created_at) VALUES ('00000000-0000-0000-0000-000000000002', "
-    "'00000000-0000-0000-0000-000000000001', 'interview', 'es', '2026-11-22', 'B1', 45, "
-    "'2026-11-10T12:00:00Z')",
-    "INSERT INTO plans (id, event_id, version, generated_at) VALUES "
-    "('00000000-0000-0000-0000-000000000003', '00000000-0000-0000-0000-000000000002', 1, "
-    "'2026-11-10T12:00:00Z')",
-    "INSERT INTO milestones (id, plan_id, scenario_slug, position, target_date) VALUES "
-    f"('{MILESTONE_ID}', '00000000-0000-0000-0000-000000000003', "
-    "'interview.introducing_yourself', 1, '2026-11-12')",
-]
-
-
-def run_step(step: str, revision: str = REVISION) -> Callable[[Connection], None]:
-    """Run a revision's `upgrade` or `downgrade` (this one's by default) on a connection."""
-    module = ScriptDirectory.from_config(alembic_config()).get_revision(revision).module
-
-    def run(conn: Connection) -> None:
-        with Operations.context(MigrationContext.configure(conn)):
-            getattr(module, step)()
-
-    return run
 
 
 async def test_existing_vocab_tasks_get_their_minutes_kept_between_3_and_8(
@@ -53,7 +20,7 @@ async def test_existing_vocab_tasks_get_their_minutes_kept_between_3_and_8(
     async with test_engine.connect() as conn:
         outer = await conn.begin()
         try:
-            await conn.run_sync(run_step("downgrade"))
+            await conn.run_sync(run_step("downgrade", REVISION))
             for statement in PRE_MIGRATION_ROWS:
                 await conn.execute(text(statement))
             for position, (kind, minutes) in enumerate(
@@ -73,7 +40,7 @@ async def test_existing_vocab_tasks_get_their_minutes_kept_between_3_and_8(
                     },
                 )
 
-            await conn.run_sync(run_step("upgrade"))
+            await conn.run_sync(run_step("upgrade", REVISION))
 
             rows = await conn.execute(
                 text("SELECT kind, vocab_batch_size FROM tasks ORDER BY position")

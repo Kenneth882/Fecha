@@ -14,7 +14,7 @@ from app.models.review import ReviewState
 from app.models.vocab import VocabItem, VocabSource
 from app.services.planner import Level
 from tests.auth import RegisteredUser, register_and_log_in
-from tests.conftest import Clock
+from tests.conftest import FIXED_NOW, Clock
 from tests.events import EVENTS, abandon, create_event
 
 TASKS = "/api/v1/tasks"
@@ -47,11 +47,19 @@ async def add_items(
     return items
 
 
-async def todays_tasks(client: AsyncClient, user: RegisteredUser) -> list[dict[str, Any]]:
-    event = (await create_event(client, user)).json()
-    today = await client.get(f"{EVENTS}/{event['id']}/today", headers=user.headers)
+async def tasks_today(
+    client: AsyncClient, user: RegisteredUser, event_id: str
+) -> list[dict[str, Any]]:
+    """The Event's Tasks on the clock's local today, in order."""
+    today = await client.get(f"{EVENTS}/{event_id}/today", headers=user.headers)
     tasks: list[dict[str, Any]] = today.json()["tasks"]
     return tasks
+
+
+async def todays_tasks(client: AsyncClient, user: RegisteredUser) -> list[dict[str, Any]]:
+    """Create the default Event and return Plan Day 1's Tasks."""
+    event = (await create_event(client, user)).json()
+    return await tasks_today(client, user, event["id"])
 
 
 async def open_vocab(client: AsyncClient, user: RegisteredUser, task_id: str) -> Any:
@@ -123,17 +131,6 @@ async def test_a_batch_skips_items_made_for_another_level(
     batch = await open_vocab(client, user, first["id"])
 
     assert phrases(batch) == [f"frase {n}" for n in range(2, 8)]
-
-
-async def test_opening_a_listen_task_is_a_409(
-    client: AsyncClient, user: RegisteredUser, clock: Clock
-) -> None:
-    _, _, listen, _ = await todays_tasks(client, user)
-
-    response = await client.get(f"{TASKS}/{listen['id']}/vocab", headers=user.headers)
-
-    assert response.status_code == 409
-    assert response.json()["error"]["code"] == "not_a_vocab_task"
 
 
 async def complete(client: AsyncClient, user: RegisteredUser, task_id: str) -> Any:
@@ -252,38 +249,25 @@ async def test_completing_a_missed_task_is_a_409_and_introduces_nothing(
     assert await review_states(db_session) == []
 
 
-async def test_completing_a_listen_task_is_a_409(
-    client: AsyncClient, user: RegisteredUser, clock: Clock
+async def test_opening_a_missed_task_for_the_first_time_shows_no_batch_and_fixes_none(
+    client: AsyncClient, user: RegisteredUser, clock: Clock, db_session: AsyncSession
 ) -> None:
-    _, _, listen, _ = await todays_tasks(client, user)
-
-    response = await client.post(f"{TASKS}/{listen['id']}/complete", headers=user.headers)
-
-    assert response.status_code == 409
-    assert response.json()["error"]["code"] == "not_a_vocab_task"
-
-
-async def test_completing_a_speak_task_is_a_409(
-    client: AsyncClient, user: RegisteredUser, clock: Clock
-) -> None:
-    await todays_tasks(client, user)
+    await add_items(db_session, INTRODUCING_YOURSELF, 20)
+    first, second, _, _ = await todays_tasks(client, user)
     clock.now = datetime(2026, 11, 11, 12, 0, tzinfo=UTC)
-    [event] = (await client.get(EVENTS, headers=user.headers)).json()
-    today = (await client.get(f"{EVENTS}/{event['id']}/today", headers=user.headers)).json()
-    [speak] = [t for t in today["tasks"] if t["kind"] == "speak"]
 
-    response = await client.post(f"{TASKS}/{speak['id']}/complete", headers=user.headers)
-
-    assert response.status_code == 409
-    assert response.json()["error"]["code"] == "not_a_vocab_task"
+    assert (await open_vocab(client, user, first["id"]))["items"] == []
+    # A Missed Task is read-only, so it held nothing back from later batches.
+    clock.now = FIXED_NOW
+    assert phrases(await open_vocab(client, user, second["id"]))[0] == "frase 1"
 
 
 async def test_completing_a_task_of_a_past_event_is_a_409(
     client: AsyncClient, user: RegisteredUser, clock: Clock, db_session: AsyncSession
 ) -> None:
     await add_items(db_session, INTRODUCING_YOURSELF, 20)
-    first, _, _, _ = await todays_tasks(client, user)
-    [event] = (await client.get(EVENTS, headers=user.headers)).json()
+    event = (await create_event(client, user)).json()
+    first, *_ = await tasks_today(client, user, event["id"])
     assert (await abandon(client, user, event["id"])).status_code == 200
 
     response = await client.post(f"{TASKS}/{first['id']}/complete", headers=user.headers)
@@ -291,6 +275,19 @@ async def test_completing_a_task_of_a_past_event_is_a_409(
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "event_already_past"
     assert await review_states(db_session) == []
+    assert (await open_vocab(client, user, first["id"]))["items"] == []
+
+
+async def test_completing_again_after_the_event_is_past_still_answers_the_same(
+    client: AsyncClient, user: RegisteredUser, clock: Clock, db_session: AsyncSession
+) -> None:
+    await add_items(db_session, INTRODUCING_YOURSELF, 20)
+    event = (await create_event(client, user)).json()
+    first, *_ = await tasks_today(client, user, event["id"])
+    completed = await complete(client, user, first["id"])
+    assert (await abandon(client, user, event["id"])).status_code == 200
+
+    assert await complete(client, user, first["id"]) == completed
 
 
 async def test_a_missed_tasks_batch_goes_back_to_its_scenarios_later_vocab_tasks(
@@ -300,24 +297,49 @@ async def test_a_missed_tasks_batch_goes_back_to_its_scenarios_later_vocab_tasks
     await add_items(db_session, WALKING_THROUGH_YOUR_EXPERIENCE, 30)
     event = (await create_event(client, user)).json()
     clock.now = datetime(2026, 11, 11, 12, 0, tzinfo=UTC)
-    first, second, _, _ = (
-        await client.get(f"{EVENTS}/{event['id']}/today", headers=user.headers)
-    ).json()["tasks"]
+    first, second, _, _ = await tasks_today(client, user, event["id"])
     assert phrases(await open_vocab(client, user, first["id"]))[0] == "frase 1"
     await complete(client, user, second["id"])  # frase 7 to frase 12
     clock.now = datetime(2026, 11, 12, 12, 0, tzinfo=UTC)
     [day_3_vocab] = [
-        t
-        for t in (await client.get(f"{EVENTS}/{event['id']}/today", headers=user.headers)).json()[
-            "tasks"
-        ]
-        if t["kind"] == "vocab"
+        t for t in await tasks_today(client, user, event["id"]) if t["kind"] == "vocab"
     ]
 
     batch = await open_vocab(client, user, day_3_vocab["id"])
 
     # The first Task is now Missed, so its items come before frase 13 again.
     assert phrases(batch) == [f"frase {n}" for n in range(1, 7)]
+
+
+async def send(client: AsyncClient, user: RegisteredUser, action: str, task_id: str) -> Any:
+    """Open (GET /vocab) or complete (POST /complete) a Task as `user`."""
+    if action == "open":
+        return await client.get(f"{TASKS}/{task_id}/vocab", headers=user.headers)
+    return await client.post(f"{TASKS}/{task_id}/complete", headers=user.headers)
+
+
+@pytest.mark.parametrize("action", ["open", "complete"])
+@pytest.mark.parametrize(
+    # Plan Day 1 has a Listen Task; Plan Day 2 (2026-11-11) has a Speak Task.
+    ("kind", "now"),
+    [("listen", FIXED_NOW), ("speak", datetime(2026, 11, 11, 12, 0, tzinfo=UTC))],
+)
+async def test_listen_and_speak_tasks_are_a_409(
+    client: AsyncClient,
+    user: RegisteredUser,
+    clock: Clock,
+    kind: str,
+    now: datetime,
+    action: str,
+) -> None:
+    event = (await create_event(client, user)).json()
+    clock.now = now
+    [task, *_] = [t for t in await tasks_today(client, user, event["id"]) if t["kind"] == kind]
+
+    response = await send(client, user, action, task["id"])
+
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "not_a_vocab_task"
 
 
 @pytest.mark.parametrize("action", ["open", "complete"])
@@ -327,13 +349,8 @@ async def test_another_users_task_is_a_404_identical_to_an_unknown_id(
     other = await register_and_log_in(client, email="other@example.com")
     theirs, _, _, _ = await todays_tasks(client, other)
 
-    async def send(task_id: str) -> Any:
-        if action == "open":
-            return await client.get(f"{TASKS}/{task_id}/vocab", headers=user.headers)
-        return await client.post(f"{TASKS}/{task_id}/complete", headers=user.headers)
-
-    for_theirs = await send(theirs["id"])
-    for_unknown = await send(str(uuid.uuid4()))
+    for_theirs = await send(client, user, action, theirs["id"])
+    for_unknown = await send(client, user, action, str(uuid.uuid4()))
 
     assert for_theirs.status_code == for_unknown.status_code == 404
     assert without_request_id(for_theirs.json()) == without_request_id(for_unknown.json())
