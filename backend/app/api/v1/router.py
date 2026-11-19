@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 
-from app.api.v1 import auth, events, health, tasks
+from app.api.v1 import auth, events, health, reviews, tasks
 from app.core.deps import get_current_user
 
 # Routes that need no auth: /health and /auth/register, /auth/login and /auth/refresh.
@@ -14,3 +14,4 @@ protected_router = APIRouter(prefix="/api/v1", dependencies=[Depends(get_current
 protected_router.include_router(auth.protected_router)
 protected_router.include_router(events.router)
 protected_router.include_router(tasks.router)
+protected_router.include_router(reviews.router)
