@@ -17,3 +17,6 @@ htmlcov/
 .DS_Store
 .idea/
 .vscode/
+
+.claude/worktrees/
+.claude/settings.local.json
