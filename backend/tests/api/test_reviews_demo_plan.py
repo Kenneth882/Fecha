@@ -1,6 +1,7 @@
-"""End to end: the 12-day demo Plan, day by day, with every Vocab Task completed and
-the Review Queue cleared each day. Every Introduced Vocab Item gets a Review in the
-Final Window, and those Reviews fit the Final Window's Review allowance (ADR 0006)."""
+"""End to end: the demo Plan from the seeded Day 4 to the Event Day 12 days later, with
+every Vocab Task completed and the Review Queue cleared each day. Every Introduced Vocab
+Item gets a Review in the Final Window, and those Reviews fit the Final Window's Review
+allowance (ADR 0006)."""
 
 from collections import Counter
 from datetime import date, timedelta
@@ -15,28 +16,15 @@ from app.models.review import Review, ReviewState
 from app.seed import DEMO_DAYS_OUT, seed_demo
 from app.services.planner import vocab_cap
 from app.services.seed_vocab import load_seed_vocab, read_seed_vocab
-from tests.auth import RegisteredUser, log_in
+from tests.auth import RegisteredUser
 from tests.conftest import FIXED_NOW, Clock
+from tests.demo import log_in_as_demo
 from tests.events import EVENTS
 from tests.reviews import due, grade
 from tests.tasks import TASKS, tasks_today
 
 # A mix of the four buttons, so some items are forgotten and come back the next day.
 GRADES = ["good", "again", "good", "easy", "hard", "good", "good"]
-
-
-async def log_in_as_demo(client: AsyncClient, settings: Settings) -> RegisteredUser:
-    logged_in = await log_in(client, settings.demo_email, settings.demo_password.get_secret_value())
-    assert logged_in.status_code == 200, logged_in.text
-    me = await client.get(
-        "/api/v1/auth/me",
-        headers={"Authorization": f"Bearer {logged_in.json()['access_token']}"},
-    )
-    return RegisteredUser(
-        profile=me.json(),
-        token=logged_in.json()["access_token"],
-        refresh_token=logged_in.json()["refresh_token"],
-    )
 
 
 async def complete_vocab_tasks(client: AsyncClient, demo: RegisteredUser, event_id: str) -> None:
