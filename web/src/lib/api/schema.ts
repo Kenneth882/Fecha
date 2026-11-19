@@ -293,10 +293,74 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/events/{event_id}/reviews/due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Due
+         * @description The Review Queue: the Vocab Items due on local today or earlier, oldest first.
+         *     Empty on the Event Day and for a Past Event.
+         */
+        get: operations["reviews-due"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events/{event_id}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Grade
+         * @description Grade one of today's Reviews: again, hard, good or easy. Returns the item's next
+         *     due date, null once nothing more is scheduled before the Event Day.
+         */
+        post: operations["reviews-grade"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * DueReview
+         * @description One Vocab Item in the Review Queue: due on `due_on`, today or earlier.
+         */
+        DueReview: {
+            /**
+             * Vocab Item Id
+             * Format: uuid
+             */
+            vocab_item_id: string;
+            /** Phrase */
+            phrase: string;
+            /** Translation */
+            translation: string;
+            /** Scenario Title */
+            scenario_title: string;
+            /**
+             * Due On
+             * Format: date
+             */
+            due_on: string;
+        };
         /** ErrorBody */
         ErrorBody: {
             /** Code */
@@ -442,6 +506,12 @@ export interface components {
          * @enum {string}
          */
         EventType: "interview" | "relocation" | "speech";
+        /**
+         * Grade
+         * @description The User's four buttons on a Review. Only Again counts as forgotten.
+         * @enum {string}
+         */
+        Grade: "again" | "hard" | "good" | "easy";
         /** HealthResponse */
         HealthResponse: {
             /**
@@ -559,6 +629,43 @@ export interface components {
         RefreshTokenRequest: {
             /** Refresh Token */
             refresh_token: string;
+        };
+        /**
+         * ReviewGrade
+         * @description What a User sends to grade one of today's Reviews.
+         */
+        ReviewGrade: {
+            /**
+             * Vocab Item Id
+             * Format: uuid
+             */
+            vocab_item_id: string;
+            grade: components["schemas"]["Grade"];
+        };
+        /**
+         * ReviewQueue
+         * @description The Vocab Items due for Review on the User's local today or earlier, oldest
+         *     first. Empty on the Event Day and for a Past Event.
+         */
+        ReviewQueue: {
+            /** Count */
+            count: number;
+            /** Items */
+            items: components["schemas"]["DueReview"][];
+        };
+        /**
+         * ReviewResult
+         * @description A graded item's next due date: null once nothing more is scheduled before the
+         *     Event Day.
+         */
+        ReviewResult: {
+            /**
+             * Vocab Item Id
+             * Format: uuid
+             */
+            vocab_item_id: string;
+            /** Due On */
+            due_on: string | null;
         };
         /**
          * Role
@@ -1358,6 +1465,117 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TaskCompletion"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "reviews-due": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                event_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewQueue"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "reviews-grade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                event_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewGrade"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewResult"];
                 };
             };
             /** @description Unauthorized */

@@ -30,7 +30,7 @@ from app.schemas.event import (
     TodayDetail,
     TodayTask,
 )
-from app.services.catalog import Scenario, find_scenario
+from app.services.catalog import stored_scenario
 from app.services.local_time import local_today
 from app.services.planner import MIN_PLAN_DAYS, DailyBudget, DraftPlan, build_plan
 from app.services.task_status import task_status
@@ -207,8 +207,25 @@ async def get_today(
     )
 
 
+async def own_event(
+    session: AsyncSession, user: User, event_id: uuid.UUID, *, for_share: bool = False
+) -> Event:
+    """One of the User's Events. With `for_share`, its row is share-locked until the
+    commit, so it can't be abandoned meanwhile.
+
+    Raises EventNotFoundError if there's no such Event or it belongs to another User.
+    """
+    event, _ = await _own_event(session, user, event_id, for_share=for_share)
+    return event
+
+
 async def _own_event(
-    session: AsyncSession, user: User, event_id: uuid.UUID, *, for_update: bool = False
+    session: AsyncSession,
+    user: User,
+    event_id: uuid.UUID,
+    *,
+    for_update: bool = False,
+    for_share: bool = False,
 ) -> tuple[Event, int]:
     """One of the User's Events and its Current Plan version.
 
@@ -218,8 +235,11 @@ async def _own_event(
         select(func.max(Plan.version)).where(Plan.event_id == Event.id).scalar_subquery()
     )
     query = select(Event, current_version).where(Event.id == event_id, Event.user_id == user.id)
-    if for_update:
-        query = query.with_for_update(of=Event)
+    if for_update or for_share:
+        # Reload the row: another request may have changed it before the lock.
+        query = query.with_for_update(of=Event, read=not for_update).execution_options(
+            populate_existing=True
+        )
     row = (await session.execute(query)).one_or_none()
     if row is None:
         raise EventNotFoundError
@@ -263,18 +283,10 @@ def _plan_rows(event: Event, draft: DraftPlan, *, version: int, generated_at: da
     )
 
 
-def _catalog_scenario(slug: str) -> Scenario:
-    scenario = find_scenario(slug)
-    if scenario is None:
-        # Stored slugs always name a catalog Scenario (ADR 0003); a test guards it.
-        raise LookupError(f"Scenario {slug!r} isn't in the catalog")
-    return scenario
-
-
 def _today_task(task: Task, scenario_slug: str, today: date) -> TodayTask:
     return TodayTask(
         id=task.id,
-        scenario_title=_catalog_scenario(scenario_slug).title,
+        scenario_title=stored_scenario(scenario_slug).title,
         kind=task.kind,
         estimated_minutes=task.estimated_minutes,
         vocab_batch_size=task.vocab_batch_size,
@@ -285,7 +297,7 @@ def _today_task(task: Task, scenario_slug: str, today: date) -> TodayTask:
 def _plan_milestone(milestone: Milestone, today: date) -> PlanMilestone:
     """`milestone` with its Scenario's catalog details and its Tasks grouped by Plan
     Day, each with its status on `today`."""
-    scenario = _catalog_scenario(milestone.scenario_slug)
+    scenario = stored_scenario(milestone.scenario_slug)
     tasks = sorted(milestone.tasks, key=lambda t: (t.date, t.position))
     return PlanMilestone(
         scenario_slug=scenario.slug,

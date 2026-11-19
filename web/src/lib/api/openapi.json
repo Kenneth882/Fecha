@@ -861,10 +861,204 @@
           }
         }
       }
+    },
+    "/api/v1/events/{event_id}/reviews/due": {
+      "get": {
+        "tags": [
+          "reviews"
+        ],
+        "summary": "Due",
+        "description": "The Review Queue: the Vocab Items due on local today or earlier, oldest first.\nEmpty on the Event Day and for a Past Event.",
+        "operationId": "reviews-due",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewQueue"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/events/{event_id}/reviews": {
+      "post": {
+        "tags": [
+          "reviews"
+        ],
+        "summary": "Grade",
+        "description": "Grade one of today's Reviews: again, hard, good or easy. Returns the item's next\ndue date, null once nothing more is scheduled before the Event Day.",
+        "operationId": "reviews-grade",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewGrade"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "DueReview": {
+        "properties": {
+          "vocab_item_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Vocab Item Id"
+          },
+          "phrase": {
+            "type": "string",
+            "title": "Phrase"
+          },
+          "translation": {
+            "type": "string",
+            "title": "Translation"
+          },
+          "scenario_title": {
+            "type": "string",
+            "title": "Scenario Title"
+          },
+          "due_on": {
+            "type": "string",
+            "format": "date",
+            "title": "Due On"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vocab_item_id",
+          "phrase",
+          "translation",
+          "scenario_title",
+          "due_on"
+        ],
+        "title": "DueReview",
+        "description": "One Vocab Item in the Review Queue: due on `due_on`, today or earlier."
+      },
       "ErrorBody": {
         "properties": {
           "code": {
@@ -1167,6 +1361,17 @@
         "title": "EventType",
         "description": "The kind of Event. It decides which Scenarios are available."
       },
+      "Grade": {
+        "type": "string",
+        "enum": [
+          "again",
+          "hard",
+          "good",
+          "easy"
+        ],
+        "title": "Grade",
+        "description": "The User's four buttons on a Review. Only Again counts as forgotten."
+      },
       "HealthResponse": {
         "properties": {
           "status": {
@@ -1410,6 +1615,75 @@
         ],
         "title": "RefreshTokenRequest",
         "description": "A refresh token, sent to `/auth/refresh` to rotate it or `/auth/logout` to revoke it."
+      },
+      "ReviewGrade": {
+        "properties": {
+          "vocab_item_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Vocab Item Id"
+          },
+          "grade": {
+            "$ref": "#/components/schemas/Grade"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vocab_item_id",
+          "grade"
+        ],
+        "title": "ReviewGrade",
+        "description": "What a User sends to grade one of today's Reviews."
+      },
+      "ReviewQueue": {
+        "properties": {
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DueReview"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "count",
+          "items"
+        ],
+        "title": "ReviewQueue",
+        "description": "The Vocab Items due for Review on the User's local today or earlier, oldest\nfirst. Empty on the Event Day and for a Past Event."
+      },
+      "ReviewResult": {
+        "properties": {
+          "vocab_item_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Vocab Item Id"
+          },
+          "due_on": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due On"
+          }
+        },
+        "type": "object",
+        "required": [
+          "vocab_item_id",
+          "due_on"
+        ],
+        "title": "ReviewResult",
+        "description": "A graded item's next due date: null once nothing more is scheduled before the\nEvent Day."
       },
       "Role": {
         "type": "string",

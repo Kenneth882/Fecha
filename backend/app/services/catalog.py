@@ -90,3 +90,13 @@ def scenarios_for(event_type: EventType) -> tuple[Scenario, ...]:
 def find_scenario(slug: str) -> Scenario | None:
     """The Scenario with this slug, or None if the catalog has no such slug."""
     return _BY_SLUG.get(slug)
+
+
+def stored_scenario(slug: str) -> Scenario:
+    """The Scenario a stored slug names. Raises LookupError if it isn't in the catalog,
+    which never happens: stored slugs always name a catalog Scenario (ADR 0003), and a
+    test guards it."""
+    scenario = find_scenario(slug)
+    if scenario is None:
+        raise LookupError(f"Scenario {slug!r} isn't in the catalog")
+    return scenario
