@@ -25,7 +25,7 @@ docker compose up -d postgres redis            # from the repo root: just the se
 uv sync                                        # install deps
 uv run uvicorn --factory app.main:create_app --reload --no-access-log  # API on :8000, docs at /docs; the app writes its own JSON access log
 uv run arq app.workers.tasks.WorkerSettings    # background worker
-uv run python -m app.seed                      # recreate the demo User and their Event (safe to re-run)
+uv run python -m app.seed                      # recreate the demo User on Day 4 of their Event (needs the seed vocab; safe to re-run)
 uv run python -m app.load_seed_vocab          # upsert the seed Vocab Items from app/data (safe to re-run; the api container runs it on start)
 uv run alembic revision --autogenerate -m "…"  # new migration
 uv run alembic upgrade head                    # apply migrations
@@ -102,7 +102,7 @@ MVP: Spanish + at most one more language; event templates = interview, relocatio
 
 ## Quality bar
 
-A reviewer should be able to clone the repo, run `docker compose up`, and try the seeded demo account ("Job interview in Spanish, 12 days out") in under 5 minutes. Keep that path working.
+A reviewer should be able to clone the repo, run `docker compose up`, and try the seeded demo account ("Job interview in Spanish, 12 days out — day 4") in under 5 minutes. Keep that path working.
 
 ## Agent skills
 

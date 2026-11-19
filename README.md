@@ -91,13 +91,13 @@ The api container applies migrations (`alembic upgrade head`) and loads the seed
 
 - Web: http://localhost:3000 — a placeholder home page for now, showing whether it can reach the API; login, onboarding and Today land with the rest of Week 3
 - API: http://localhost:8000 — interactive docs at http://localhost:8000/docs, readiness at http://localhost:8000/api/v1/health/ready
-- Demo account: **"Job interview in Spanish, 12 days out"**. Seed it once the stack is up:
+- Demo account: **"Job interview in Spanish, 12 days out — day 4"**. Seed it once the stack is up:
 
   ```bash
   docker compose exec api python -m app.seed   # or, on the host: cd backend && uv run python -m app.seed
   ```
 
-  Then log in as `demo@example.com` / `local-demo-only-2026!` (local placeholders, set by `DEMO_EMAIL` / `DEMO_PASSWORD`). Re-running it is safe: it recreates the demo User with a fresh Event 12 days after today, so the demo never goes stale. It doesn't run on `docker compose up` yet (Week 8).
+  Then log in as `demo@example.com` / `local-demo-only-2026!` (local placeholders, set by `DEMO_EMAIL` / `DEMO_PASSWORD`). The demo starts on Day 4 of 15 with three days of history, built through the real services: Days 1–3's Vocab Tasks are done, their Reviews graded (mostly Good, a few Again), and about 20 Reviews are due today. Days 1–3's Listen and Speak Tasks show as Missed until those Task kinds land. Re-running it is safe: it recreates the demo User and replays that history so that today is always Day 4, with the Event Day 12 days away, so the demo never goes stale. It needs the seed vocabulary, which the api container loads on start (on the host, run `python -m app.load_seed_vocab` first). It doesn't run on `docker compose up` yet (Week 8).
 
 ### Local backend development
 
@@ -111,7 +111,7 @@ uv run alembic upgrade head
 uv run python -m app.load_seed_vocab         # upsert the Spanish seed Vocab Items (safe to re-run)
 uv run uvicorn --factory app.main:create_app --reload --no-access-log
 uv run arq app.workers.tasks.WorkerSettings   # in a second terminal
-uv run python -m app.seed                     # recreate the demo User and their Event
+uv run python -m app.seed                     # recreate the demo User on Day 4 of their Event
 ```
 
 ### Local web development
