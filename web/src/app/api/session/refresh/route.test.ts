@@ -110,6 +110,33 @@ describe("GET /api/session/refresh (a page load with a stale access token)", () 
     expectCleared(response);
   });
 
+  it("shows a page, not raw JSON, when FastAPI can't be reached, and keeps the session", async () => {
+    stubFastApi(() => {
+      throw new TypeError("fetch failed");
+    });
+
+    const response = await GET(getRefresh("/plan?week=2", "old-refresh"));
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Content-Type")).toContain("text/html");
+    expect(response.headers.get("Retry-After")).toBeTruthy();
+    const html = await response.text();
+    expect(html).toContain("can't be reached");
+    expect(html).toContain('href="/plan?week=2"');
+    expect(response.headers.getSetCookie()).toEqual([]);
+  });
+
+  it("escapes next in that page, so it can't inject markup", async () => {
+    stubFastApi(() => {
+      throw new TypeError("fetch failed");
+    });
+
+    const html = await (await GET(getRefresh('/plan?q="><script>x</script>', "old-refresh"))).text();
+
+    expect(html).not.toContain("<script>");
+    expect(html).toContain('href="/plan?q=%22%3E%3Cscript%3Ex%3C/script%3E"');
+  });
+
   it("never redirects off-site, whatever next says", async () => {
     stubFastApi(() => Response.json(tokens()));
 

@@ -50,7 +50,7 @@ Always use `uv run` / `uv add` — never `pip install`. In `web/`, pin exact ver
 
 ## Architecture rules
 
-- **FastAPI owns all I/O.** Only the API and the arq worker touch Postgres, Redis, S3/R2 and external AI APIs. The frontend talks only to `/api/v1` (REST) and one WebSocket (`/roleplay/{milestone_id}`).
+- **FastAPI owns all I/O.** Only the API and the arq worker touch Postgres, Redis, S3/R2 and external AI APIs. Browser code talks only to the web app's own origin: `/api/v1` (REST, forwarded to FastAPI with the session's token), `/api/session/*` (login, register, refresh, logout; ADR 0007) and one WebSocket (`/roleplay/{milestone_id}`). It never holds a token.
 - **`services/planner.py` and `services/srs.py` are pure functions.** No FastAPI, SQLAlchemy, Redis or network imports. Inputs and outputs are plain data / Pydantic models. This keeps them trivially testable and explainable. `scoring.py` should follow the same rule.
 - **Layering:** `api/v1/*` routers → `services/*` → `models/*` via the DB session. Routers stay thin: validate, call a service, return a schema.
 - **Schemas vs models:** `schemas/` holds Pydantic request/response models; `models/` holds SQLAlchemy tables. Don't return ORM objects directly from routes without a response schema.

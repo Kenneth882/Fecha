@@ -1,12 +1,8 @@
-import { fileURLToPath } from "node:url";
-
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  resolve: {
-    // tsconfig.json's `@/*` path.
-    alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
-  },
+  // tsconfig.json's `@/*` path, as Next.js resolves it.
+  resolve: { tsconfigPaths: true },
   test: {
     environment: "node",
     include: ["**/*.test.ts"],

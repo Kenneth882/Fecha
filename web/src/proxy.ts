@@ -39,15 +39,18 @@ function isForeignChange(request: NextRequest): boolean {
   );
 }
 
-/** Pages for people who aren't logged in. A logged-in User is sent on to the app. */
-const LOGGED_OUT_PAGES = new Set(["/login", "/register"]);
-
 /**
- * Paths that never need a session: the route handlers under /api answer for
- * themselves, and the PWA's manifest and icons must load before anyone logs in.
+ * Paths that never need a session: the login and register pages, the route handlers
+ * under /api (which answer for themselves), and the PWA's manifest and icons, which
+ * must load before anyone logs in.
+ *
+ * Login stays reachable with a live-looking token too: FastAPI may have refused it
+ * (a deleted User, a rotated signing key), and logging in again replaces it.
  */
 function isOpenPath(pathname: string): boolean {
   return (
+    pathname === "/login" ||
+    pathname === "/register" ||
     pathname.startsWith("/api/") ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/icons/") ||
@@ -65,11 +68,7 @@ function sessionRedirect(request: NextRequest): NextResponse | null {
   const { pathname, search } = request.nextUrl;
   if (isOpenPath(pathname)) return null;
 
-  const hasSession = !accessTokenNeedsRefresh(request.cookies.get(ACCESS_COOKIE)?.value);
-  if (LOGGED_OUT_PAGES.has(pathname)) {
-    return hasSession ? NextResponse.redirect(new URL("/", appOrigin(request))) : null;
-  }
-  if (hasSession) return null;
+  if (!accessTokenNeedsRefresh(request.cookies.get(ACCESS_COOKIE)?.value)) return null;
 
   const refresh = new URL("/api/session/refresh", appOrigin(request));
   refresh.searchParams.set("next", pathname + search);

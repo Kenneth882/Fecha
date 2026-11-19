@@ -134,12 +134,14 @@ describe("proxy: pages need a session", () => {
     expect(proxy(page("/api/v1/events/active")).status).toBe(200);
   });
 
-  it("sends a logged-in User away from the login page", () => {
-    const response = proxy(page("/login", accessTokenExpiringIn(600)));
-
-    expect(response.status).toBe(307);
-    expect(new URL(response.headers.get("Location") ?? "").pathname).toBe("/");
-  });
+  it.each(["/login", "/register"])(
+    "always lets %s through, even with a live-looking token FastAPI may have refused",
+    (path) => {
+      // Bouncing these to / would trap a User whose token FastAPI rejects (deleted
+      // User, rotated signing key): / sends them to login, and login back to /.
+      expect(proxy(page(path, accessTokenExpiringIn(600))).status).toBe(200);
+    },
+  );
 });
 
 describe("proxy: the app's own origin, behind the standalone server", () => {

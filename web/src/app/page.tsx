@@ -1,3 +1,5 @@
+import { unstable_rethrow } from "next/navigation";
+
 import { LogoutButton } from "@/components/logout-button";
 import { createUserApiClient } from "@/lib/api/server";
 
@@ -28,10 +30,11 @@ export default async function Home() {
 
 async function currentUser() {
   try {
-    const api = await createUserApiClient();
+    const api = await createUserApiClient("/");
     const { data } = await api.GET("/api/v1/auth/me", { signal: AbortSignal.timeout(2000) });
     return data ?? null;
-  } catch {
+  } catch (error) {
+    unstable_rethrow(error); // The redirect to login, for a token FastAPI refused.
     return null;
   }
 }

@@ -46,7 +46,7 @@ export async function GET(request: NextRequest): Promise<Response> {
   }
   if (rotation.kind === "unreachable") {
     // Not the User's fault, and their session may be fine: say so, and keep the cookies.
-    return apiUnreachable();
+    return unavailablePage(next);
   }
 
   const login = new URL("/login", appOrigin(request));
@@ -54,4 +54,37 @@ export async function GET(request: NextRequest): Promise<Response> {
   const response = NextResponse.redirect(login);
   clearSessionCookies(response, appOrigin(request));
   return response;
+}
+
+/**
+ * What a page load shows while FastAPI is down: this is a navigation, so a JSON error
+ * would appear raw. Plain HTML, no scripts or inline styles (the CSP allows neither).
+ */
+function unavailablePage(next: string): Response {
+  const href = escapeHtml(next);
+  const html = `<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CramPlan is unavailable</title></head>
+<body>
+<main>
+<h1>CramPlan can't be reached right now</h1>
+<p>You're still logged in. Try again in a moment.</p>
+<p><a href="${href}">Try again</a></p>
+</main>
+</body>
+</html>`;
+  return new Response(html, {
+    status: 503,
+    headers: { "Content-Type": "text/html; charset=utf-8", "Retry-After": "10" },
+  });
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
