@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+import { errorResponse } from "@/lib/api/errors";
+import { ACCESS_COOKIE, accessTokenNeedsRefresh } from "@/lib/session/cookies";
+import { appOrigin } from "@/lib/session/origin";
+
 /**
  * The Content-Security-Policy for one response. Scripts run only with this response's
  * nonce, which Next.js reads from the request's CSP header and adds to its own scripts.
@@ -22,7 +26,63 @@ function contentSecurityPolicy(nonce: string): string {
   ].join("; ");
 }
 
-export function proxy(request: NextRequest): NextResponse {
+const CHANGING_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
+
+/**
+ * CSRF: a changing request must come from a page of this app. Browsers send `Origin`
+ * on every non-GET request, so a missing one is refused too (ADR 0007).
+ */
+function isForeignChange(request: NextRequest): boolean {
+  return (
+    CHANGING_METHODS.has(request.method) &&
+    request.headers.get("Origin") !== appOrigin(request).origin
+  );
+}
+
+/** Pages for people who aren't logged in. A logged-in User is sent on to the app. */
+const LOGGED_OUT_PAGES = new Set(["/login", "/register"]);
+
+/**
+ * Paths that never need a session: the route handlers under /api answer for
+ * themselves, and the PWA's manifest and icons must load before anyone logs in.
+ */
+function isOpenPath(pathname: string): boolean {
+  return (
+    pathname.startsWith("/api/") ||
+    pathname.startsWith("/_next/") ||
+    pathname.startsWith("/icons/") ||
+    ["/manifest.webmanifest", "/icon.svg", "/apple-icon.png", "/favicon.ico"].includes(pathname)
+  );
+}
+
+/**
+ * A page renders only with an access token that has at least 2 minutes left, so the
+ * Server Components behind it can call FastAPI. Otherwise the refresh handler, the
+ * only path the refresh cookie is sent to, swaps it and sends the User back here (or
+ * on to login, if the session is over).
+ */
+function sessionRedirect(request: NextRequest): NextResponse | null {
+  const { pathname, search } = request.nextUrl;
+  if (isOpenPath(pathname)) return null;
+
+  const hasSession = !accessTokenNeedsRefresh(request.cookies.get(ACCESS_COOKIE)?.value);
+  if (LOGGED_OUT_PAGES.has(pathname)) {
+    return hasSession ? NextResponse.redirect(new URL("/", appOrigin(request))) : null;
+  }
+  if (hasSession) return null;
+
+  const refresh = new URL("/api/session/refresh", appOrigin(request));
+  refresh.searchParams.set("next", pathname + search);
+  return NextResponse.redirect(refresh);
+}
+
+export function proxy(request: NextRequest): Response {
+  if (isForeignChange(request)) {
+    return errorResponse(403, "cross_origin_request", "Changes can only be made from CramPlan itself");
+  }
+  const redirect = sessionRedirect(request);
+  if (redirect) return redirect;
+
   const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
   const policy = contentSecurityPolicy(nonce);
 
