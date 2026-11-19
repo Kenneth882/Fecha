@@ -12,6 +12,14 @@ Access tokens stay short-lived (30 minutes) so they never need revoking. Users s
 
 The proxy refreshes silently before the access token expires, so a User preparing for an Event over several weeks isn't asked to log in every 30 minutes.
 
+## How the refresh works
+
+The refresh cookie is scoped to `Path=/api/session`, so only the session route handlers (login, register, refresh, logout) ever receive it. No page or `/api/v1` request carries the long-lived token, so a bug that logs or forwards those requests can't leak it. Logout needs the token to revoke it, which is why the path is `/api/session` rather than `/api/session/refresh` alone. The `/api/v1` forwarder never sees the refresh token, so it can't refresh by itself. Refresh happens in two places instead:
+- **Page loads:** Next.js's proxy (`src/proxy.ts`) sends a request whose access token is missing or within 2 minutes of expiring to `GET /api/session/refresh?next=<path>`. That handler rotates the tokens and redirects back, or to `/login?next=<path>` if the session is over. So a Server Component always has a live access token. Another site can make a browser load this GET, but that only rotates the User's own cookies, and `next` is always a path on this app.
+- **Browser API calls:** the forwarder answers a missing or near-expiry token with 401. The browser client then calls `POST /api/session/refresh` and retries the request once. Requests that get a 401 together share one refresh.
+
+The app's own origin, for the `Origin` check and for deciding `Secure`, comes from the `Host` header (plus `X-Forwarded-Proto`), not `request.nextUrl`. The standalone server builds `request.nextUrl` from its bind address, `0.0.0.0`.
+
 ## Considered Options
 
 - **The browser calls FastAPI directly, with the token in `localStorage`:** the simplest option, but any XSS could read the token, and FastAPI would need CORS.

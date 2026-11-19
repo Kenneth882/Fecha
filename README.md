@@ -89,7 +89,7 @@ docker compose up             # web, api, worker, postgres, redis
 
 The api container applies migrations (`alembic upgrade head`) and loads the seed vocabulary (`python -m app.load_seed_vocab`) before it starts serving, so a fresh database needs no manual steps.
 
-- Web: http://localhost:3000 — a placeholder home page for now, showing whether it can reach the API; login, onboarding and Today land with the rest of Week 3
+- Web: http://localhost:3000 — register or log in (the demo login is below); onboarding, Today and the Review screens land with the rest of Week 3
 - API: http://localhost:8000 — interactive docs at http://localhost:8000/docs, readiness at http://localhost:8000/api/v1/health/ready
 - Demo account: **"Job interview in Spanish, 12 days out — day 4"**. Seed it once the stack is up:
 
@@ -97,7 +97,7 @@ The api container applies migrations (`alembic upgrade head`) and loads the seed
   docker compose exec api python -m app.seed   # or, on the host: cd backend && uv run python -m app.seed
   ```
 
-  Then log in as `demo@example.com` / `local-demo-only-2026!` (local placeholders, set by `DEMO_EMAIL` / `DEMO_PASSWORD`). The demo starts on Day 4 of 15 with three days of history, built through the real services: Days 1–3's Vocab Tasks are done, their Reviews graded (mostly Good, a few Again), and about 20 Reviews are due today. Days 1–3's Listen and Speak Tasks show as Missed until those Task kinds land. Re-running it is safe: it recreates the demo User and replays that history so that today is always Day 4, with the Event Day 12 days away, so the demo never goes stale. It needs the seed vocabulary, which the api container loads on start (on the host, run `python -m app.load_seed_vocab` first). It doesn't run on `docker compose up` yet (Week 8).
+  Then log in at http://localhost:3000/login (or through `/docs`) as `demo@example.com` / `local-demo-only-2026!` (local placeholders, set by `DEMO_EMAIL` / `DEMO_PASSWORD`). The demo starts on Day 4 of 15 with three days of history, built through the real services: Days 1–3's Vocab Tasks are done, their Reviews graded (mostly Good, a few Again), and about 20 Reviews are due today. Days 1–3's Listen and Speak Tasks show as Missed until those Task kinds land. Re-running it is safe: it recreates the demo User and replays that history so that today is always Day 4, with the Event Day 12 days away, so the demo never goes stale. It needs the seed vocabulary, which the api container loads on start (on the host, run `python -m app.load_seed_vocab` first). It doesn't run on `docker compose up` yet (Week 8).
 
 ### Local backend development
 
@@ -127,6 +127,13 @@ API_URL=http://localhost:8000 npm run dev    # http://localhost:3000; needs the 
 `API_URL` is FastAPI's address. Only the Next.js server reads it: browser code calls the web app's own origin, never FastAPI (ADR 0007).
 
 **The API client is generated, never hand-written.** `npm run generate:api` exports the OpenAPI schema straight from `create_app()` (`uv run python -m app.export_openapi`, no server, database or `.env` needed), then `openapi-typescript` turns it into `web/src/lib/api/schema.ts`, which `openapi-fetch` uses. Run it after any change to the API's routes or schemas and commit both files; CI regenerates them and fails if anything differs.
+
+**Sessions go through the Next.js server (ADR 0007).** Browser code never sees a token:
+- `/api/session/login`, `/register`, `/refresh` and `/logout` are Next.js route handlers that call FastAPI and keep its tokens in `HttpOnly`, `SameSite=Lax` cookies (`Secure` everywhere but localhost). The access cookie (`cramplan_access`, `Path=/`) lasts as long as the access token. The refresh cookie (`cramplan_refresh`) is sent only to `/api/session/*` and lasts as long as the refresh token.
+- `/api/v1/*` is forwarded to FastAPI with the access cookie as `Authorization: Bearer` and no cookies. It refuses `/api/v1/auth/*` (except `/auth/me`), whose bodies carry tokens.
+- `src/proxy.ts` rejects any `POST`, `PATCH`, `PUT` or `DELETE` whose `Origin` isn't the app's own (taken from the `Host` header), and sends a page request whose access token is missing or under 2 minutes from expiring through `GET /api/session/refresh?next=…`, which rotates the tokens and comes back, or goes to `/login?next=…` once the session is over. If FastAPI is down, that refresh shows a plain "can't be reached" page and keeps the session.
+- A Server Component that gets a 401 from FastAPI (it refused a live-looking token) sends the User to `/login?next=…`; `/login` and `/register` are always reachable, so that can't loop.
+- In browser code, `createBrowserApiClient()` (`src/lib/api/browser.ts`) answers a 401 by calling `POST /api/session/refresh` and retrying once; requests that fail together share one refresh. Server Components use `createUserApiClient()` (`src/lib/api/server.ts`).
 
 ### Tests and checks
 
@@ -322,12 +329,20 @@ web/                       # Next.js (App Router) + TypeScript + Tailwind PWA, h
 ├── Dockerfile             # standalone Next.js server for the web service
 ├── next.config.ts         # standalone output, frame/nosniff/referrer headers
 ├── src/
-│   ├── proxy.ts           # per-request nonce Content-Security-Policy
-│   ├── app/               # pages, web manifest, icons
-│   └── lib/api/
-│       ├── openapi.json   # generated: the API's schema, from app.export_openapi
-│       ├── schema.ts      # generated: openapi-typescript types (never edit)
-│       └── client.ts      # openapi-fetch client, server-side only (API_URL)
+│   ├── proxy.ts           # nonce CSP, Origin check (CSRF), page session redirects
+│   ├── app/
+│   │   ├── api/session/   # login, register, refresh, logout: set/clear the session cookies
+│   │   ├── api/v1/        # forwards /api/v1/* to FastAPI with the access cookie as Bearer
+│   │   ├── login/, register/  # the auth screens
+│   │   └── …              # pages, web manifest, icons
+│   └── lib/
+│       ├── session/       # cookies, origin, safe `next` paths, refresh-token rotation
+│       └── api/
+│           ├── openapi.json   # generated: the API's schema, from app.export_openapi
+│           ├── schema.ts      # generated: openapi-typescript types (never edit)
+│           ├── client.ts      # openapi-fetch client for FastAPI, server-side only (API_URL)
+│           ├── server.ts      # the same, as the logged-in User, for Server Components
+│           └── browser.ts     # same-origin client with silent refresh, for browser code
 └── public/icons/          # install icons for the manifest
 ```
 
