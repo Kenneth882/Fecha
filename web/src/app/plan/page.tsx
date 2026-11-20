@@ -12,8 +12,8 @@ export const metadata: Metadata = { title: "Plan · CramPlan" };
  * target date) with its Plan Days and Tasks, ending at the Event Day.
  */
 export default async function PlanPage() {
-  const event = await requireActiveEvent("/plan");
   const api = await pageApi("/plan");
+  const event = await requireActiveEvent(api);
   const { data: plan } = await api.GET("/api/v1/events/{event_id}/plan", {
     params: { path: { event_id: event.id } },
   });

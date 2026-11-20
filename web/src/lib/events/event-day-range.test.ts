@@ -5,7 +5,7 @@ import { eventDayRange } from "./event-day-range";
 describe("eventDayRange", () => {
   it("allows an Event Day 3 to 60 days after the User's local today", () => {
     const range = eventDayRange(new Date("2026-11-20T12:00:00Z"), "Europe/Madrid");
-    expect(range).toEqual({ today: "2026-11-20", min: "2026-11-23", max: "2027-01-19" });
+    expect(range).toEqual({ min: "2026-11-23", max: "2027-01-19" });
   });
 
   it("counts from the User's local today, not UTC's", () => {

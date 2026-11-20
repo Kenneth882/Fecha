@@ -37,9 +37,10 @@ export async function pageApi(path: string) {
   return api;
 }
 
+export type PageApi = Awaited<ReturnType<typeof pageApi>>;
+
 /** All the logged-in User's Events, newest first. */
-export async function loadEvents(path: string): Promise<EventSummary[]> {
-  const api = await pageApi(path);
+export async function loadEvents(api: PageApi): Promise<EventSummary[]> {
   const { data } = await api.GET("/api/v1/events");
   if (!data) throw new ApiUnavailableError();
   return data;
@@ -49,8 +50,8 @@ export async function loadEvents(path: string): Promise<EventSummary[]> {
  * The logged-in User's Active Event, for a page only they can use (Today, the Plan).
  * A User without one is sent to onboarding.
  */
-export async function requireActiveEvent(path: string): Promise<EventSummary> {
-  const event = activeEvent(await loadEvents(path));
+export async function requireActiveEvent(api: PageApi): Promise<EventSummary> {
+  const event = activeEvent(await loadEvents(api));
   if (!event) redirect("/onboarding");
   return event;
 }

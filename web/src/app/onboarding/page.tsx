@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "Set up your Event · CramPlan" };
 /** Creating the User's Event. A User who already has an Active Event goes to Today. */
 export default async function OnboardingPage() {
   const api = await pageApi("/onboarding");
-  const [events, me] = await Promise.all([loadEvents("/onboarding"), api.GET("/api/v1/auth/me")]);
+  const [events, me] = await Promise.all([loadEvents(api), api.GET("/api/v1/auth/me")]);
   if (activeEvent(events)) redirect("/today");
   if (!me.data) throw new ApiUnavailableError();
 
@@ -34,8 +34,9 @@ export default async function OnboardingPage() {
         </div>
         {lastEvent && (
           <p className="rounded-md bg-current/5 px-3 py-2 text-sm">
-            Your {EVENT_TYPES[lastEvent.type].label.toLowerCase()} on{" "}
-            {formatDate(lastEvent.event_day, { year: true })} is over. Set up your next one below.
+            {lastEvent.abandoned_at ? "You abandoned your " : "Your "}
+            {EVENT_TYPES[lastEvent.type].label.toLowerCase()} on {formatDate(lastEvent.event_day, { year: true })}
+            {lastEvent.abandoned_at ? "." : " is over."} Set up your next one below.
           </p>
         )}
         <OnboardingForm range={range} />

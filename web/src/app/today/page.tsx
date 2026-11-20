@@ -10,8 +10,8 @@ export const metadata: Metadata = { title: "Today · CramPlan" };
 
 /** "Day N of M", the countdown, today's Tasks and the Review Queue, for the Active Event. */
 export default async function TodayPage() {
-  const event = await requireActiveEvent("/today");
   const api = await pageApi("/today");
+  const event = await requireActiveEvent(api);
   const params = { params: { path: { event_id: event.id } } };
   const [today, queue] = await Promise.all([
     api.GET("/api/v1/events/{event_id}/today", params),

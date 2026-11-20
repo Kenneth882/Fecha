@@ -56,15 +56,15 @@ export function TaskRow({ task, heading, linked = true }: { task: Task; heading?
   );
 }
 
+const BADGES: Record<Task["status"] | "locked", { label: string; tone: string }> = {
+  pending: { label: TASK_STATUSES.pending, tone: "bg-blue-600/10 text-blue-800 dark:text-blue-300" },
+  completed: { label: TASK_STATUSES.completed, tone: "bg-green-600/15 text-green-800 dark:text-green-300" },
+  missed: { label: TASK_STATUSES.missed, tone: "bg-amber-500/15 text-amber-800 dark:text-amber-300" },
+  locked: { label: "Coming soon", tone: "bg-current/10" },
+};
+
 function StatusBadge({ status, locked }: { status: Task["status"]; locked: boolean }) {
-  const label = locked ? "Coming soon" : TASK_STATUSES[status];
-  const tone = locked
-    ? "bg-current/10"
-    : status === "completed"
-      ? "bg-green-600/15 text-green-800 dark:text-green-300"
-      : status === "missed"
-        ? "bg-amber-500/15 text-amber-800 dark:text-amber-300"
-        : "bg-blue-600/10 text-blue-800 dark:text-blue-300";
+  const { label, tone } = BADGES[locked ? "locked" : status];
   return (
     <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${tone}`} data-testid="task-status">
       {label}

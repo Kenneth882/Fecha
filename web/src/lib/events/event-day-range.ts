@@ -3,7 +3,7 @@ export const MIN_DAYS_AHEAD = 3;
 export const MAX_DAYS_AHEAD = 60;
 
 /** ISO dates (`YYYY-MM-DD`), as an `<input type="date">` takes them. */
-export type EventDayRange = { today: string; min: string; max: string };
+export type EventDayRange = { min: string; max: string };
 
 /**
  * The Event Days a User can pick: 3 to 60 days after their local today in their
@@ -11,7 +11,7 @@ export type EventDayRange = { today: string; min: string; max: string };
  */
 export function eventDayRange(now: Date, timezone: string): EventDayRange {
   const today = localToday(now, timezone);
-  return { today, min: addDays(today, MIN_DAYS_AHEAD), max: addDays(today, MAX_DAYS_AHEAD) };
+  return { min: addDays(today, MIN_DAYS_AHEAD), max: addDays(today, MAX_DAYS_AHEAD) };
 }
 
 function localToday(now: Date, timezone: string): string {
