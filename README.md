@@ -89,7 +89,7 @@ docker compose up             # web, api, worker, postgres, redis
 
 The api container applies migrations (`alembic upgrade head`) and loads the seed vocabulary (`python -m app.load_seed_vocab`) before it starts serving, so a fresh database needs no manual steps.
 
-- Web: http://localhost:3000 — register or log in (the demo login is below); onboarding, Today and the Review screens land with the rest of Week 3
+- Web: http://localhost:3000 — register or log in (the demo login is below), then create an Event in onboarding and practise from Today: Vocab Tasks, Reviews and the Plan
 - API: http://localhost:8000 — interactive docs at http://localhost:8000/docs, readiness at http://localhost:8000/api/v1/health/ready
 - Demo account: **"Job interview in Spanish, 12 days out — day 4"**. Seed it once the stack is up:
 
@@ -368,7 +368,7 @@ Part-time build (~10–15 h/week). Each week ends with something running and tes
 
 - [x] **Week 1 — Foundation:** uv/ruff/mypy/pre-commit, Docker Compose, config + async DB + Alembic, User + JWT auth, GitHub Actions CI
 - [x] **Week 2 — Events & template planner:** Event/Plan/Milestone/Task models, Event CRUD, template-based `planner.py`, `GET /events/{id}/today`
-- [ ] **Week 3 — Spaced repetition:** VocabItem/ReviewState, `srs.py` + property tests, review endpoints, Spanish seed vocab, Next.js onboarding + daily practice
+- [x] **Week 3 — Spaced repetition:** VocabItem/ReviewState, `srs.py` + property tests, review endpoints, Spanish seed vocab, Next.js onboarding + daily practice
 - [ ] **Week 4 — LLM generation:** `llm.py` with instructor, arq worker, retries/fallback/Redis cache, fake-LLM test override
 - [ ] **Week 5 — Roleplay (text):** WebSocket text turns, per-milestone scenario prompts, transcript + feedback
 - [ ] **Week 6 — Voice:** STT/TTS streaming, audio to S3/R2, per-turn latency + per-session cost logging
