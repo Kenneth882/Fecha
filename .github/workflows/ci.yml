@@ -174,12 +174,14 @@ jobs:
         if: failure()
         run: docker compose logs --no-color
 
-      # The HTML report, with a trace for every failed attempt.
+      # The HTML report, with a trace for every failed attempt: also when a retry
+      # passed, so a flaky run leaves something to look at.
       - uses: actions/upload-artifact@v4
-        if: failure()
+        if: ${{ !cancelled() }}
         with:
           name: playwright-report
           path: |
             web/playwright-report/
             web/test-results/
+          if-no-files-found: ignore
           retention-days: 14

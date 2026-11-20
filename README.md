@@ -151,9 +151,10 @@ npm run lint && npm run typecheck && npm test && npm run build
 **End-to-end test.** One Playwright test, `web/e2e/onboarding-to-first-task.spec.ts`, covers the main path in a real browser: register → onboarding → Today → open the first Vocab Task → Done → the Task shows as Done, even after a reload. It also checks that no token or JWT can be read from `document.cookie`, `localStorage` or `sessionStorage` (ADR 0007). It drives the full stack, so start that first. Each run registers a new User, so it needs no cleanup and can run again on the same stack.
 
 ```bash
-docker compose up --build     # from the repo root; --build so the containers run your current code
+cp .env.example .env          # from the repo root, if you haven't yet
+docker compose up --build     # --build so the containers run your current code
 cd web
-npx playwright install chromium   # once, or after Playwright is upgraded
+npx playwright install chromium   # once, or after Playwright is upgraded; on Linux add --with-deps
 npm run test:e2e                  # against http://localhost:3000; set E2E_BASE_URL to use another address
 npx playwright show-report        # the HTML report, with a trace for any failure
 ```

@@ -38,7 +38,8 @@ test("a new User registers, sets up an Event and completes their first Vocab Tas
 
   const taskHref = await test.step("open the first Vocab Task from Today", async () => {
     await expect(page.getByTestId("today-title")).toHaveText("Day 1 of 12");
-    const firstTask = page.getByTestId("task-link").first();
+    // Only Vocab Tasks are open today, but pick by kind so unlocking Listen or Speak can't change the path.
+    const firstTask = page.getByTestId("task-link").filter({ hasText: "Vocabulary" }).first();
     await expect(firstTask.getByTestId("task-status")).toHaveText("To do");
     const href = await firstTask.getAttribute("href");
     expect(href).toMatch(/^\/tasks\/[\w-]+$/);
