@@ -148,6 +148,19 @@ cd ../web
 npm run lint && npm run typecheck && npm test && npm run build
 ```
 
+**End-to-end test.** One Playwright test, `web/e2e/onboarding-to-first-task.spec.ts`, covers the main path in a real browser: register → onboarding → Today → open the first Vocab Task → Done → the Task shows as Done, even after a reload. It also checks that no token or JWT can be read from `document.cookie`, `localStorage` or `sessionStorage` (ADR 0007). It drives the full stack, so start that first. Each run registers a new User, so it needs no cleanup and can run again on the same stack.
+
+```bash
+cp .env.example .env          # from the repo root, if you haven't yet
+docker compose up --build     # --build so the containers run your current code
+cd web
+npx playwright install chromium   # once, or after Playwright is upgraded; on Linux add --with-deps
+npm run test:e2e                  # against http://localhost:3000; set E2E_BASE_URL to use another address
+npx playwright show-report        # the HTML report, with a trace for any failure
+```
+
+Playwright doesn't start a server itself. To test uncommitted web changes without rebuilding the image, run `docker compose stop web` and then `API_URL=http://localhost:8000 npm run dev` on the same port. CI's `e2e` job builds the stack from the commit, waits for `/api/v1/health/ready`, runs the test, and on failure uploads the report and traces and prints the stack's logs.
+
 ### Security headers
 
 Every web response carries `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: strict-origin-when-cross-origin`, set in `web/next.config.ts`. Pages also get a Content-Security-Policy from `web/src/proxy.ts`: `connect-src 'self'`, `frame-ancestors 'none'`, and scripts and styles only with a fresh per-request nonce (no `'unsafe-inline'`), which Next.js adds to its own tags. Nonces need per-request rendering, so every page is dynamic.
@@ -327,6 +340,7 @@ backend/
 └── pyproject.toml
 web/                       # Next.js (App Router) + TypeScript + Tailwind PWA, http://localhost:3000
 ├── Dockerfile             # standalone Next.js server for the web service
+├── e2e/                   # the Playwright test, onboarding → first Task (playwright.config.ts)
 ├── next.config.ts         # standalone output, frame/nosniff/referrer headers
 ├── src/
 │   ├── proxy.ts           # nonce CSP, Origin check (CSRF), page session redirects
