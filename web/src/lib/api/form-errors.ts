@@ -9,7 +9,12 @@ export type FormErrors = {
 
 /** A failed response's `ErrorResponse`, shaped for showing inline on a form. */
 export async function formErrors(response: Response): Promise<FormErrors> {
-  const body = (await response.json().catch(() => null)) as ErrorResponse | null;
+  return formErrorsFromBody(await response.json().catch(() => null));
+}
+
+/** The same, from a body already parsed (as openapi-fetch's `error` is). */
+export function formErrorsFromBody(parsed: unknown): FormErrors {
+  const body = parsed as ErrorResponse | null | undefined;
   if (!body?.error) {
     return { form: "Something went wrong. Please try again.", fields: {} };
   }
