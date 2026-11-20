@@ -46,7 +46,7 @@ export function ReviewSession({
 }) {
   const [state, dispatch] = useReducer(nextReviewState, items, startReviewSession);
   const saves = useRef<Promise<void>[]>([]);
-  const gradedAt = useRef(0);
+  const gradedAt = useRef(Number.NEGATIVE_INFINITY);
   const review = currentReview(state);
 
   function submitGrade(item: ReviewItem, grade: Grade, at: number) {
