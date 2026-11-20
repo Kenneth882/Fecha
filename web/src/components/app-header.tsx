@@ -10,9 +10,10 @@ const LINKS = [
 
 /**
  * The bar at the top of every logged-in screen. Onboarding has no Event yet, so it
- * shows no links.
+ * shows no links. A screen without `current` (a Task, a Review session) shows them,
+ * none marked current.
  */
-export function AppHeader({ current }: { current: "today" | "plan" | "onboarding" }) {
+export function AppHeader({ current }: { current?: "today" | "plan" | "onboarding" }) {
   return (
     <header className="border-b border-current/10">
       <div className="mx-auto flex w-full max-w-xl items-center gap-4 px-4 py-3">
