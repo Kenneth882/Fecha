@@ -54,10 +54,21 @@ export default async function TodayPage() {
                   {queue.data.count === 0 ? "Nothing to review right now." : "Phrases due for a quick recall."}
                 </p>
               </div>
-              <span className="text-2xl font-semibold tabular-nums" data-testid="review-count">
-                {queue.data.count}
-                <span className="sr-only"> due</span>
-              </span>
+              <div className="flex shrink-0 items-center gap-3">
+                <span className="text-2xl font-semibold tabular-nums" data-testid="review-count">
+                  {queue.data.count}
+                  <span className="sr-only"> due</span>
+                </span>
+                {queue.data.count > 0 && (
+                  <Link
+                    href="/review"
+                    data-testid="review-start"
+                    className="rounded-md bg-blue-700 px-3 py-2 text-sm font-medium text-white"
+                  >
+                    Start
+                  </Link>
+                )}
+              </div>
             </section>
 
             <section aria-labelledby="tasks-heading" className="flex flex-col gap-2">
