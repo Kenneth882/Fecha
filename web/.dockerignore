@@ -6,3 +6,8 @@ next-env.d.ts
 .env*
 Dockerfile
 .dockerignore
+test-results
+playwright-report
+blob-report
+e2e
+playwright.config.ts
