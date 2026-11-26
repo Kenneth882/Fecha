@@ -93,6 +93,13 @@ class Task(Base):
         CheckConstraint(
             "(kind = 'vocab') = (vocab_batch_size IS NOT NULL)", name="vocab_batch_size"
         ),
+        CheckConstraint(
+            "listen_dialogue_id IS NULL OR kind = 'listen'", name="listen_dialogue_kind"
+        ),
+        CheckConstraint(
+            "(listen_dialogue_id IS NULL) = (listen_dialogue_fixed_at IS NULL)",
+            name="listen_dialogue_fixed_at",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -110,6 +117,12 @@ class Task(Base):
     # When a Vocab Task's batch was chosen, on first open or completion. Set even when
     # the batch is empty (its Scenario had run out), so an empty batch stays fixed too.
     vocab_batch_fixed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # A Listen Task's Listen Dialogue and when it was chosen, on first open or answer.
+    # Null until then, and always for Vocab and Speak Tasks. Never changes once set.
+    listen_dialogue_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("listen_dialogues.id"), index=True
+    )
+    listen_dialogue_fixed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     milestone: Mapped[Milestone] = relationship(back_populates="tasks", lazy="raise")

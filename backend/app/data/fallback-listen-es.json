@@ -1,0 +1,1333 @@
+{
+  "language": "es",
+  "dialogues": {
+    "interview.introducing_yourself": {
+      "speakers": [
+        "Carmen",
+        "Daniel"
+      ],
+      "lines": [
+        {
+          "speaker": "Carmen",
+          "text": "Buenos días. Usted es Daniel Ortega, ¿verdad?"
+        },
+        {
+          "speaker": "Daniel",
+          "text": "Sí, buenos días. Mucho gusto."
+        },
+        {
+          "speaker": "Carmen",
+          "text": "Encantada. Soy Carmen López, de Recursos Humanos. Siéntese, por favor."
+        },
+        {
+          "speaker": "Daniel",
+          "text": "Gracias por recibirme. He llegado un poco pronto, perdone."
+        },
+        {
+          "speaker": "Carmen",
+          "text": "No se preocupe. ¿Ha encontrado bien la oficina?"
+        },
+        {
+          "speaker": "Daniel",
+          "text": "Sí, sin problema. He venido en metro desde Atocha."
+        },
+        {
+          "speaker": "Carmen",
+          "text": "Perfecto. Para empezar, cuénteme un poco sobre usted."
+        },
+        {
+          "speaker": "Daniel",
+          "text": "Claro. Soy de Sevilla, pero vivo en Madrid desde hace tres años."
+        }
+      ],
+      "questions": [
+        {
+          "prompt": "What does Carmen do?",
+          "options": [
+            "She runs the company",
+            "She works in Human Resources",
+            "She's another candidate"
+          ],
+          "correct_option": 2,
+          "supporting_line": "Soy Carmen López, de Recursos Humanos."
+        },
+        {
+          "prompt": "How did Daniel get to the office?",
+          "options": [
+            "By metro",
+            "By bus",
+            "By car"
+          ],
+          "correct_option": 1,
+          "supporting_line": "He venido en metro desde Atocha."
+        },
+        {
+          "prompt": "Where is Daniel from?",
+          "options": [
+            "Madrid",
+            "Valencia",
+            "Seville"
+          ],
+          "correct_option": 3,
+          "supporting_line": "Soy de Sevilla"
+        }
+      ]
+    },
+    "interview.walking_through_your_experience": {
+      "speakers": [
+        "Javier",
+        "Elena"
+      ],
+      "lines": [
+        {
+          "speaker": "Javier",
+          "text": "Veo en su currículum que trabaja en una empresa de logística."
+        },
+        {
+          "speaker": "Elena",
+          "text": "Sí, llevo cuatro años allí como coordinadora de envíos."
+        },
+        {
+          "speaker": "Javier",
+          "text": "¿Y qué hacía antes de ese puesto?"
+        },
+        {
+          "speaker": "Elena",
+          "text": "Antes trabajé dos años en atención al cliente en una tienda de electrónica."
+        },
+        {
+          "speaker": "Javier",
+          "text": "¿Qué responsabilidades tiene ahora mismo?"
+        },
+        {
+          "speaker": "Elena",
+          "text": "Gestiono un equipo de cinco personas y hablo a diario con los transportistas."
+        },
+        {
+          "speaker": "Javier",
+          "text": "¿Por qué quiere dejar su empresa actual?"
+        },
+        {
+          "speaker": "Elena",
+          "text": "Me gustaría crecer profesionalmente y trabajar en un entorno más internacional."
+        }
+      ],
+      "questions": [
+        {
+          "prompt": "How long has Elena worked at the logistics company?",
+          "options": [
+            "Two years",
+            "Five years",
+            "Four years"
+          ],
+          "correct_option": 3,
+          "supporting_line": "llevo cuatro años allí"
+        },
+        {
+          "prompt": "What did Elena do before that?",
+          "options": [
+            "Accounting at a bank",
+            "Customer service in an electronics shop",
+            "Teaching at a school"
+          ],
+          "correct_option": 2,
+          "supporting_line": "atención al cliente en una tienda de electrónica"
+        },
+        {
+          "prompt": "How many people are on Elena's team?",
+          "options": [
+            "Five",
+            "Two",
+            "Four"
+          ],
+          "correct_option": 1,
+          "supporting_line": "un equipo de cinco personas"
+        }
+      ]
+    },
+    "interview.why_this_role": {
+      "speakers": [
+        "Marta",
+        "Pablo"
+      ],
+      "lines": [
+        {
+          "speaker": "Marta",
+          "text": "¿Por qué le interesa este puesto?"
+        },
+        {
+          "speaker": "Pablo",
+          "text": "Porque me encanta resolver problemas, y aquí podría hacerlo con clientes de toda Europa."
+        },
+        {
+          "speaker": "Marta",
+          "text": "¿Qué sabe de nuestra empresa?"
+        },
+        {
+          "speaker": "Pablo",
+          "text": "Sé que abrieron la oficina de Madrid hace dos años y que están creciendo muy rápido."
+        },
+        {
+          "speaker": "Marta",
+          "text": "Así es. ¿Y qué puede aportar usted al equipo?"
+        },
+        {
+          "speaker": "Pablo",
+          "text": "Hablo tres idiomas y tengo mucha paciencia con los clientes difíciles."
+        },
+        {
+          "speaker": "Marta",
+          "text": "¿Dónde se ve dentro de cinco años?"
+        },
+        {
+          "speaker": "Pablo",
+          "text": "Me gustaría liderar un pequeño equipo de soporte."
+        }
+      ],
+      "questions": [
+        {
+          "prompt": "When did the company open its Madrid office?",
+          "options": [
+            "Two years ago",
+            "Five years ago",
+            "Last month"
+          ],
+          "correct_option": 1,
+          "supporting_line": "abrieron la oficina de Madrid hace dos años"
+        },
+        {
+          "prompt": "How many languages does Pablo speak?",
+          "options": [
+            "Two",
+            "Four",
+            "Three"
+          ],
+          "correct_option": 3,
+          "supporting_line": "Hablo tres idiomas"
+        },
+        {
+          "prompt": "What would Pablo like to be doing in five years?",
+          "options": [
+            "Running his own company",
+            "Leading a small support team",
+            "Working in another country"
+          ],
+          "correct_option": 2,
+          "supporting_line": "liderar un pequeño equipo de soporte"
+        }
+      ]
+    },
+    "interview.describing_a_challenge": {
+      "speakers": [
+        "Isabel",
+        "Andrés"
+      ],
+      "lines": [
+        {
+          "speaker": "Isabel",
+          "text": "Hábleme de una situación difícil en el trabajo y de cómo la resolvió."
+        },
+        {
+          "speaker": "Andrés",
+          "text": "El año pasado, nuestro sistema de pedidos dejó de funcionar durante un fin de semana."
+        },
+        {
+          "speaker": "Isabel",
+          "text": "¿Y qué hizo usted?"
+        },
+        {
+          "speaker": "Andrés",
+          "text": "Organicé al equipo para atender a los clientes por teléfono y apuntar los pedidos a mano."
+        },
+        {
+          "speaker": "Isabel",
+          "text": "¿Cuál fue el resultado?"
+        },
+        {
+          "speaker": "Andrés",
+          "text": "No perdimos ningún pedido, y el lunes ya estaba todo en el sistema."
+        },
+        {
+          "speaker": "Isabel",
+          "text": "¿Qué aprendió de aquella experiencia?"
+        },
+        {
+          "speaker": "Andrés",
+          "text": "Aprendí que hay que tener siempre un plan alternativo."
+        }
+      ],
+      "questions": [
+        {
+          "prompt": "What went wrong?",
+          "options": [
+            "An important client left",
+            "The order system stopped working",
+            "The office flooded"
+          ],
+          "correct_option": 2,
+          "supporting_line": "nuestro sistema de pedidos dejó de funcionar"
+        },
+        {
+          "prompt": "How did the team take orders that weekend?",
+          "options": [
+            "By email",
+            "Through a new app",
+            "By phone, writing them down by hand"
+          ],
+          "correct_option": 3,
+          "supporting_line": "atender a los clientes por teléfono y apuntar los pedidos a mano"
+        },
+        {
+          "prompt": "What did Andrés learn?",
+          "options": [
+            "To always have a backup plan",
+            "To work fewer weekends",
+            "To ask for help sooner"
+          ],
+          "correct_option": 1,
+          "supporting_line": "hay que tener siempre un plan alternativo"
+        }
+      ]
+    },
+    "interview.salary_negotiation": {
+      "speakers": [
+        "Raúl",
+        "Sara"
+      ],
+      "lines": [
+        {
+          "speaker": "Raúl",
+          "text": "Bueno, hablemos de las condiciones. ¿Cuáles son sus expectativas salariales?"
+        },
+        {
+          "speaker": "Sara",
+          "text": "Teniendo en cuenta mi experiencia, busco unos treinta y ocho mil euros brutos al año."
+        },
+        {
+          "speaker": "Raúl",
+          "text": "Nuestra oferta inicial es de treinta y cinco mil, en catorce pagas."
+        },
+        {
+          "speaker": "Sara",
+          "text": "Entiendo. ¿Hay posibilidad de revisar el salario después del periodo de prueba?"
+        },
+        {
+          "speaker": "Raúl",
+          "text": "Sí, a los seis meses hacemos una revisión."
+        },
+        {
+          "speaker": "Sara",
+          "text": "¿Y el puesto permite teletrabajar algunos días?"
+        },
+        {
+          "speaker": "Raúl",
+          "text": "Sí, dos días a la semana desde casa."
+        },
+        {
+          "speaker": "Sara",
+          "text": "Me parece razonable. ¿Podría enviarme la oferta por escrito?"
+        }
+      ],
+      "questions": [
+        {
+          "prompt": "How much is the company's first offer?",
+          "options": [
+            "38,000 euros a year",
+            "40,000 euros a year",
+            "35,000 euros a year"
+          ],
+          "correct_option": 3,
+          "supporting_line": "Nuestra oferta inicial es de treinta y cinco mil"
+        },
+        {
+          "prompt": "When is the salary reviewed?",
+          "options": [
+            "After six months",
+            "After a year",
+            "Never"
+          ],
+          "correct_option": 1,
+          "supporting_line": "a los seis meses hacemos una revisión"
+        },
+        {
+          "prompt": "How often can Sara work from home?",
+          "options": [
+            "Never",
+            "Two days a week",
+            "Every day"
+          ],
+          "correct_option": 2,
+          "supporting_line": "dos días a la semana desde casa"
+        }
+      ]
+    },
+    "interview.asking_the_interviewer": {
+      "speakers": [
+        "Lorena",
+        "Hugo"
+      ],
+      "lines": [
+        {
+          "speaker": "Lorena",
+          "text": "Pues eso es todo por mi parte. ¿Tiene usted alguna pregunta?"
+        },
+        {
+          "speaker": "Hugo",
+          "text": "Sí, gracias. ¿Cómo es un día normal en este puesto?"
+        },
+        {
+          "speaker": "Lorena",
+          "text": "Por la mañana revisamos las incidencias en equipo, y por la tarde cada uno atiende a sus clientes."
+        },
+        {
+          "speaker": "Hugo",
+          "text": "¿Con cuántas personas trabajaría?"
+        },
+        {
+          "speaker": "Lorena",
+          "text": "El equipo es de ocho personas, y la jefa es Natalia."
+        },
+        {
+          "speaker": "Hugo",
+          "text": "¿Cuáles son los siguientes pasos del proceso?"
+        },
+        {
+          "speaker": "Lorena",
+          "text": "Le llamaremos la semana que viene para una segunda entrevista con ella."
+        },
+        {
+          "speaker": "Hugo",
+          "text": "Perfecto. Muchas gracias por su tiempo."
+        }
+      ],
+      "questions": [
+        {
+          "prompt": "What does the team do in the morning?",
+          "options": [
+            "Go through problems together",
+            "Visit clients",
+            "Have training"
+          ],
+          "correct_option": 1,
+          "supporting_line": "Por la mañana revisamos las incidencias en equipo"
+        },
+        {
+          "prompt": "How many people are on the team?",
+          "options": [
+            "Five",
+            "Eight",
+            "Ten"
+          ],
+          "correct_option": 2,
+          "supporting_line": "El equipo es de ocho personas"
+        },
+        {
+          "prompt": "What happens next?",
+          "options": [
+            "Hugo gets an offer today",
+            "Hugo must send references",
+            "A second interview, next week"
+          ],
+          "correct_option": 3,
+          "supporting_line": "Le llamaremos la semana que viene para una segunda entrevista"
+        }
+      ]
+    },
+    "relocation.airport_arrival": {
+      "speakers": [
+        "Alberto",
+        "Emma"
+      ],
+      "lines": [
+        {
+          "speaker": "Alberto",
+          "text": "Buenas tardes. Su pasaporte, por favor."
+        },
+        {
+          "speaker": "Emma",
+          "text": "Aquí tiene."
+        },
+        {
+          "speaker": "Alberto",
+          "text": "¿Cuál es el motivo de su viaje?"
+        },
+        {
+          "speaker": "Emma",
+          "text": "Me mudo a Madrid por trabajo. Empiezo el lunes en una empresa de software."
+        },
+        {
+          "speaker": "Alberto",
+          "text": "¿Tiene la dirección donde se va a alojar?"
+        },
+        {
+          "speaker": "Emma",
+          "text": "Sí, los primeros días estaré en un hotel en la calle Alcalá."
+        },
+        {
+          "speaker": "Alberto",
+          "text": "Muy bien. Bienvenida a España."
+        },
+        {
+          "speaker": "Emma",
+          "text": "Gracias. Perdone, ¿dónde se coge el tren al centro?"
+        },
+        {
+          "speaker": "Alberto",
+          "text": "Siga las señales hasta la planta cero. Sale cada media hora."
+        }
+      ],
+      "questions": [
+        {
+          "prompt": "Why is Emma travelling?",
+          "options": [
+            "She's on holiday",
+            "She's moving to Madrid for work",
+            "She's visiting family"
+          ],
+          "correct_option": 2,
+          "supporting_line": "Me mudo a Madrid por trabajo."
+        },
+        {
+          "prompt": "Where will she stay for the first few days?",
+          "options": [
+            "In a hotel on Calle Alcalá",
+            "With a friend",
+            "In her new flat"
+          ],
+          "correct_option": 1,
+          "supporting_line": "estaré en un hotel en la calle Alcalá"
+        },
+        {
+          "prompt": "How often does the train to the centre leave?",
+          "options": [
+            "Every ten minutes",
+            "Every hour",
+            "Every half hour"
+          ],
+          "correct_option": 3,
+          "supporting_line": "Sale cada media hora."
+        }
+      ]
+    },
+    "relocation.apartment_check_in": {
+      "speakers": [
+        "Rosa",
+        "Óscar"
+      ],
+      "lines": [
+        {
+          "speaker": "Rosa",
+          "text": "Hola, usted es Óscar, ¿no? Yo soy Rosa, la dueña del piso."
+        },
+        {
+          "speaker": "Óscar",
+          "text": "Sí, encantado. Gracias por esperarme."
+        },
+        {
+          "speaker": "Rosa",
+          "text": "Mire, aquí tiene dos juegos de llaves. La grande es del portal."
+        },
+        {
+          "speaker": "Óscar",
+          "text": "Perfecto. ¿Y la fianza ya está pagada?"
+        },
+        {
+          "speaker": "Rosa",
+          "text": "Sí, ayer recibí la transferencia de los dos meses."
+        },
+        {
+          "speaker": "Óscar",
+          "text": "¿Cuándo tengo que pagar el alquiler cada mes?"
+        },
+        {
+          "speaker": "Rosa",
+          "text": "Antes del día cinco, por transferencia bancaria."
+        },
+        {
+          "speaker": "Óscar",
+          "text": "Una cosa más: la ducha casi no tiene agua caliente."
+        },
+        {
+          "speaker": "Rosa",
+          "text": "Vaya, mañana llamo al fontanero."
+        }
+      ],
+      "questions": [
+        {
+          "prompt": "What does the big key open?",
+          "options": [
+            "The flat",
+            "The mailbox",
+            "The building's front door"
+          ],
+          "correct_option": 3,
+          "supporting_line": "La grande es del portal."
+        },
+        {
+          "prompt": "When does Óscar have to pay the rent?",
+          "options": [
+            "On the first of the month",
+            "Before the fifth of the month",
+            "At the end of the month"
+          ],
+          "correct_option": 2,
+          "supporting_line": "Antes del día cinco"
+        },
+        {
+          "prompt": "What problem does Óscar mention?",
+          "options": [
+            "The shower has hardly any hot water",
+            "The heating is broken",
+            "A window won't close"
+          ],
+          "correct_option": 1,
+          "supporting_line": "la ducha casi no tiene agua caliente"
+        }
+      ]
+    },
+    "relocation.setting_up_utilities": {
+      "speakers": [
+        "Nuria",
+        "Iván"
+      ],
+      "lines": [
+        {
+          "speaker": "Nuria",
+          "text": "Compañía eléctrica, le atiende Nuria. ¿En qué puedo ayudarle?"
+        },
+        {
+          "speaker": "Iván",
+          "text": "Hola, buenos días. Me acabo de mudar y quiero dar de alta la luz."
+        },
+        {
+          "speaker": "Nuria",
+          "text": "Muy bien. ¿Me dice la dirección del piso?"
+        },
+        {
+          "speaker": "Iván",
+          "text": "Calle de Toledo, número doce, tercero B."
+        },
+        {
+          "speaker": "Nuria",
+          "text": "Necesito también su NIE y un número de cuenta para domiciliar los recibos."
+        },
+        {
+          "speaker": "Iván",
+          "text": "Tengo el NIE aquí. ¿Cuánto tarda en estar activa?"
+        },
+        {
+          "speaker": "Nuria",
+          "text": "Normalmente, entre dos y tres días laborables."
+        },
+        {
+          "speaker": "Iván",
+          "text": "¿Y la factura llega cada mes?"
+        },
+        {
+          "speaker": "Nuria",
+          "text": "Sí, es mensual, y se la enviamos por correo electrónico."
+        }
+      ],
+      "questions": [
+        {
+          "prompt": "What does Iván want to set up?",
+          "options": [
+            "Electricity",
+            "Internet",
+            "Water"
+          ],
+          "correct_option": 1,
+          "supporting_line": "quiero dar de alta la luz"
+        },
+        {
+          "prompt": "What does Nuria need from him?",
+          "options": [
+            "His passport and a deposit",
+            "His work contract",
+            "His NIE and a bank account number"
+          ],
+          "correct_option": 3,
+          "supporting_line": "Necesito también su NIE y un número de cuenta"
+        },
+        {
+          "prompt": "How long until it's working?",
+          "options": [
+            "The same day",
+            "Two or three working days",
+            "A week"
+          ],
+          "correct_option": 2,
+          "supporting_line": "entre dos y tres días laborables"
+        }
+      ]
+    },
+    "relocation.asking_for_help": {
+      "speakers": [
+        "Gloria",
+        "Clara"
+      ],
+      "lines": [
+        {
+          "speaker": "Gloria",
+          "text": "Buenas noches. ¿Qué le ha pasado?"
+        },
+        {
+          "speaker": "Clara",
+          "text": "Creo que me han robado la cartera en el autobús."
+        },
+        {
+          "speaker": "Gloria",
+          "text": "Vaya, lo siento. ¿Qué llevaba dentro?"
+        },
+        {
+          "speaker": "Clara",
+          "text": "Mi tarjeta del banco, unos cuarenta euros y la tarjeta de residencia."
+        },
+        {
+          "speaker": "Gloria",
+          "text": "Primero, llame a su banco para bloquear la tarjeta."
+        },
+        {
+          "speaker": "Clara",
+          "text": "Ya lo he hecho desde el móvil. ¿Qué más tengo que hacer?"
+        },
+        {
+          "speaker": "Gloria",
+          "text": "Tiene que poner una denuncia. Rellene este formulario, por favor."
+        },
+        {
+          "speaker": "Clara",
+          "text": "¿Y qué hago con la tarjeta de residencia?"
+        },
+        {
+          "speaker": "Gloria",
+          "text": "Con la copia de la denuncia, puede pedir cita para un duplicado."
+        }
+      ],
+      "questions": [
+        {
+          "prompt": "Where does Clara think her wallet was stolen?",
+          "options": [
+            "In a café",
+            "On the bus",
+            "At a metro station"
+          ],
+          "correct_option": 2,
+          "supporting_line": "me han robado la cartera en el autobús"
+        },
+        {
+          "prompt": "How much cash was in it?",
+          "options": [
+            "Twenty euros",
+            "A hundred euros",
+            "About forty euros"
+          ],
+          "correct_option": 3,
+          "supporting_line": "unos cuarenta euros"
+        },
+        {
+          "prompt": "What does she need to replace her residence card?",
+          "options": [
+            "A copy of the police report",
+            "Only a new photo",
+            "A letter from her bank"
+          ],
+          "correct_option": 1,
+          "supporting_line": "Con la copia de la denuncia, puede pedir cita para un duplicado."
+        }
+      ]
+    },
+    "relocation.opening_a_bank_account": {
+      "speakers": [
+        "Fernando",
+        "Ana"
+      ],
+      "lines": [
+        {
+          "speaker": "Fernando",
+          "text": "Buenos días, siéntese. ¿En qué le puedo ayudar?"
+        },
+        {
+          "speaker": "Ana",
+          "text": "Quería abrir una cuenta corriente. Acabo de llegar a España."
+        },
+        {
+          "speaker": "Fernando",
+          "text": "Muy bien. ¿Ha traído el pasaporte y el NIE?"
+        },
+        {
+          "speaker": "Ana",
+          "text": "Sí, aquí los tiene. También tengo mi contrato de trabajo."
+        },
+        {
+          "speaker": "Fernando",
+          "text": "Perfecto. Con la nómina domiciliada, la cuenta no tiene comisiones."
+        },
+        {
+          "speaker": "Ana",
+          "text": "¿Y cuándo recibiré la tarjeta?"
+        },
+        {
+          "speaker": "Fernando",
+          "text": "Le llegará por correo en unos diez días."
+        },
+        {
+          "speaker": "Ana",
+          "text": "¿Puedo usar la aplicación del banco mientras tanto?"
+        },
+        {
+          "speaker": "Fernando",
+          "text": "Sí, hoy mismo le damos las claves."
+        }
+      ],
+      "questions": [
+        {
+          "prompt": "What does Ana want to do?",
+          "options": [
+            "Ask for a loan",
+            "Close an account",
+            "Open a current account"
+          ],
+          "correct_option": 3,
+          "supporting_line": "Quería abrir una cuenta corriente."
+        },
+        {
+          "prompt": "When does the account have no fees?",
+          "options": [
+            "When her salary is paid into it",
+            "Always, for new customers",
+            "Only in the first year"
+          ],
+          "correct_option": 1,
+          "supporting_line": "Con la nómina domiciliada, la cuenta no tiene comisiones."
+        },
+        {
+          "prompt": "When will her card arrive?",
+          "options": [
+            "Today",
+            "In about ten days",
+            "Tomorrow"
+          ],
+          "correct_option": 2,
+          "supporting_line": "en unos diez días"
+        }
+      ]
+    },
+    "relocation.seeing_a_doctor": {
+      "speakers": [
+        "Beatriz",
+        "Luis"
+      ],
+      "lines": [
+        {
+          "speaker": "Beatriz",
+          "text": "Pase, siéntese. ¿Qué le pasa?"
+        },
+        {
+          "speaker": "Luis",
+          "text": "Llevo tres días con fiebre y me duele mucho la garganta."
+        },
+        {
+          "speaker": "Beatriz",
+          "text": "¿Tiene tos o dolor de cabeza?"
+        },
+        {
+          "speaker": "Luis",
+          "text": "Un poco de tos, sobre todo por la noche."
+        },
+        {
+          "speaker": "Beatriz",
+          "text": "¿Es alérgico a algún medicamento?"
+        },
+        {
+          "speaker": "Luis",
+          "text": "Sí, soy alérgico a la penicilina."
+        },
+        {
+          "speaker": "Beatriz",
+          "text": "De acuerdo. Le voy a recetar otro antibiótico. Tómelo cada ocho horas."
+        },
+        {
+          "speaker": "Luis",
+          "text": "¿Durante cuántos días?"
+        },
+        {
+          "speaker": "Beatriz",
+          "text": "Siete días. Y si no mejora, vuelva el viernes."
+        }
+      ],
+      "questions": [
+        {
+          "prompt": "How long has Luis had a fever?",
+          "options": [
+            "Three days",
+            "A week",
+            "Since this morning"
+          ],
+          "correct_option": 1,
+          "supporting_line": "Llevo tres días con fiebre"
+        },
+        {
+          "prompt": "What is Luis allergic to?",
+          "options": [
+            "Aspirin",
+            "Penicillin",
+            "Nothing"
+          ],
+          "correct_option": 2,
+          "supporting_line": "soy alérgico a la penicilina"
+        },
+        {
+          "prompt": "How often should he take the antibiotic?",
+          "options": [
+            "Once a day",
+            "Every twelve hours",
+            "Every eight hours"
+          ],
+          "correct_option": 3,
+          "supporting_line": "Tómelo cada ocho horas."
+        }
+      ]
+    },
+    "speech.opening_the_speech": {
+      "speakers": [
+        "Teresa",
+        "Miguel"
+      ],
+      "lines": [
+        {
+          "speaker": "Teresa",
+          "text": "Buenas tardes a todos. Les presento a Miguel Ramos, ingeniero de nuestro equipo de Barcelona."
+        },
+        {
+          "speaker": "Miguel",
+          "text": "Muchas gracias, Teresa, y buenas tardes a todos."
+        },
+        {
+          "speaker": "Miguel",
+          "text": "Es un honor estar aquí, en mi primera conferencia en Madrid."
+        },
+        {
+          "speaker": "Miguel",
+          "text": "Hoy les voy a hablar de cómo reducir el consumo de energía en las oficinas."
+        },
+        {
+          "speaker": "Teresa",
+          "text": "Miguel, perdona, ¿puedes acercarte un poco más al micrófono?"
+        },
+        {
+          "speaker": "Miguel",
+          "text": "Claro. ¿Así se me oye mejor?"
+        },
+        {
+          "speaker": "Teresa",
+          "text": "Perfecto, ahora sí."
+        },
+        {
+          "speaker": "Miguel",
+          "text": "Bien. La charla dura unos veinte minutos, y al final habrá tiempo para preguntas."
+        }
+      ],
+      "questions": [
+        {
+          "prompt": "Where does Miguel's team work?",
+          "options": [
+            "In Madrid",
+            "In Barcelona",
+            "In Valencia"
+          ],
+          "correct_option": 2,
+          "supporting_line": "ingeniero de nuestro equipo de Barcelona"
+        },
+        {
+          "prompt": "What is the talk about?",
+          "options": [
+            "Using less energy in offices",
+            "Hiring engineers",
+            "Working from home"
+          ],
+          "correct_option": 1,
+          "supporting_line": "cómo reducir el consumo de energía en las oficinas"
+        },
+        {
+          "prompt": "What does Teresa ask Miguel to do?",
+          "options": [
+            "Speak more slowly",
+            "Start again",
+            "Move closer to the microphone"
+          ],
+          "correct_option": 3,
+          "supporting_line": "acercarte un poco más al micrófono"
+        }
+      ]
+    },
+    "speech.telling_a_personal_story": {
+      "speakers": [
+        "Irene",
+        "Jorge"
+      ],
+      "lines": [
+        {
+          "speaker": "Jorge",
+          "text": "Te cuento la historia que voy a contar en la charla, a ver qué te parece."
+        },
+        {
+          "speaker": "Irene",
+          "text": "Venga, te escucho."
+        },
+        {
+          "speaker": "Jorge",
+          "text": "Cuando llegué a Madrid hace diez años, no hablaba ni una palabra de español."
+        },
+        {
+          "speaker": "Jorge",
+          "text": "El primer día pedí un café en un bar, y el camarero me trajo una cerveza."
+        },
+        {
+          "speaker": "Irene",
+          "text": "¡Qué gracioso! ¿Y qué hiciste?"
+        },
+        {
+          "speaker": "Jorge",
+          "text": "Me la bebí, claro, y al día siguiente me apunté a clases de español."
+        },
+        {
+          "speaker": "Irene",
+          "text": "Me encanta. ¿Y cómo termina la historia?"
+        },
+        {
+          "speaker": "Jorge",
+          "text": "Termina con una frase: aquel error fue el principio de todo."
+        }
+      ],
+      "questions": [
+        {
+          "prompt": "When did Jorge arrive in Madrid?",
+          "options": [
+            "Two years ago",
+            "Last summer",
+            "Ten years ago"
+          ],
+          "correct_option": 3,
+          "supporting_line": "Cuando llegué a Madrid hace diez años"
+        },
+        {
+          "prompt": "What did the waiter bring him?",
+          "options": [
+            "A coffee",
+            "A beer",
+            "A glass of water"
+          ],
+          "correct_option": 2,
+          "supporting_line": "el camarero me trajo una cerveza"
+        },
+        {
+          "prompt": "What did Jorge do the next day?",
+          "options": [
+            "He signed up for Spanish classes",
+            "He went back to the bar",
+            "He moved to another city"
+          ],
+          "correct_option": 1,
+          "supporting_line": "me apunté a clases de español"
+        }
+      ]
+    },
+    "speech.making_your_main_point": {
+      "speakers": [
+        "Patricia",
+        "Ramón"
+      ],
+      "lines": [
+        {
+          "speaker": "Patricia",
+          "text": "Ramón, ¿me ayudas? Quiero que la idea principal de mi charla quede clara."
+        },
+        {
+          "speaker": "Ramón",
+          "text": "Claro. Dímela en una frase."
+        },
+        {
+          "speaker": "Patricia",
+          "text": "Que las pequeñas empresas deberían vender también por internet."
+        },
+        {
+          "speaker": "Ramón",
+          "text": "Bien. ¿Y qué datos vas a usar para demostrarlo?"
+        },
+        {
+          "speaker": "Patricia",
+          "text": "Que el año pasado nuestras ventas en línea crecieron un treinta por ciento."
+        },
+        {
+          "speaker": "Ramón",
+          "text": "Es un dato potente. Repítelo al principio y al final."
+        },
+        {
+          "speaker": "Patricia",
+          "text": "Buena idea. ¿Crees que debo poner un ejemplo?"
+        },
+        {
+          "speaker": "Ramón",
+          "text": "Sí, cuenta el caso de la panadería de tu barrio."
+        }
+      ],
+      "questions": [
+        {
+          "prompt": "What is Patricia's main point?",
+          "options": [
+            "Small businesses should sell online too",
+            "Big companies should hire more",
+            "Shops should open on Sundays"
+          ],
+          "correct_option": 1,
+          "supporting_line": "Que las pequeñas empresas deberían vender también por internet."
+        },
+        {
+          "prompt": "How much did online sales grow last year?",
+          "options": [
+            "Ten per cent",
+            "Fifty per cent",
+            "Thirty per cent"
+          ],
+          "correct_option": 3,
+          "supporting_line": "crecieron un treinta por ciento"
+        },
+        {
+          "prompt": "What example does Ramón suggest?",
+          "options": [
+            "A clothes shop",
+            "The bakery in her neighbourhood",
+            "A restaurant chain"
+          ],
+          "correct_option": 2,
+          "supporting_line": "la panadería de tu barrio"
+        }
+      ]
+    },
+    "speech.closing_and_thanking": {
+      "speakers": [
+        "Silvia",
+        "Ernesto"
+      ],
+      "lines": [
+        {
+          "speaker": "Silvia",
+          "text": "Y con esto termino. Muchas gracias a todos por su atención."
+        },
+        {
+          "speaker": "Ernesto",
+          "text": "Gracias a ti, Silvia. ¡Un aplauso, por favor!"
+        },
+        {
+          "speaker": "Silvia",
+          "text": "Antes de irme, quiero dar las gracias a Ernesto y a todo el equipo organizador."
+        },
+        {
+          "speaker": "Silvia",
+          "text": "Sin su ayuda, este encuentro no habría sido posible."
+        },
+        {
+          "speaker": "Ernesto",
+          "text": "Ha sido un placer. Recuerden que la presentación estará en la web mañana."
+        },
+        {
+          "speaker": "Silvia",
+          "text": "Y si alguien quiere escribirme, mi correo está en la última diapositiva."
+        },
+        {
+          "speaker": "Ernesto",
+          "text": "Ahora hacemos una pausa de quince minutos para el café."
+        },
+        {
+          "speaker": "Silvia",
+          "text": "Gracias otra vez, y que disfruten del resto del día."
+        }
+      ],
+      "questions": [
+        {
+          "prompt": "Who does Silvia thank?",
+          "options": [
+            "Her family",
+            "Ernesto and the organising team",
+            "The sponsors"
+          ],
+          "correct_option": 2,
+          "supporting_line": "quiero dar las gracias a Ernesto y a todo el equipo organizador"
+        },
+        {
+          "prompt": "Where can people find the presentation?",
+          "options": [
+            "In their email, today",
+            "At the front desk",
+            "On the website, tomorrow"
+          ],
+          "correct_option": 3,
+          "supporting_line": "la presentación estará en la web mañana"
+        },
+        {
+          "prompt": "How long is the break?",
+          "options": [
+            "Fifteen minutes",
+            "Five minutes",
+            "Half an hour"
+          ],
+          "correct_option": 1,
+          "supporting_line": "una pausa de quince minutos"
+        }
+      ]
+    },
+    "speech.answering_audience_questions": {
+      "speakers": [
+        "Gonzalo",
+        "Alicia"
+      ],
+      "lines": [
+        {
+          "speaker": "Gonzalo",
+          "text": "Muy bien, ¿alguien tiene alguna pregunta?"
+        },
+        {
+          "speaker": "Alicia",
+          "text": "Sí, yo. Ha dicho que su proyecto funciona en tres ciudades. ¿Cuáles son?"
+        },
+        {
+          "speaker": "Gonzalo",
+          "text": "Buena pregunta. Funciona en Madrid, Bilbao y Málaga."
+        },
+        {
+          "speaker": "Alicia",
+          "text": "¿Y cuánto cuesta ponerlo en marcha en una ciudad nueva?"
+        },
+        {
+          "speaker": "Gonzalo",
+          "text": "Depende del tamaño, pero unos cincuenta mil euros el primer año."
+        },
+        {
+          "speaker": "Alicia",
+          "text": "¿Tienen pensado llegar a otros países?"
+        },
+        {
+          "speaker": "Gonzalo",
+          "text": "Sinceramente, todavía no lo sabemos. Primero queremos consolidarlo aquí."
+        },
+        {
+          "speaker": "Alicia",
+          "text": "Muchas gracias por la respuesta."
+        },
+        {
+          "speaker": "Gonzalo",
+          "text": "A usted. Si tiene más dudas, hablamos después."
+        }
+      ],
+      "questions": [
+        {
+          "prompt": "Which cities does the project work in?",
+          "options": [
+            "Madrid, Barcelona and Seville",
+            "Only Madrid",
+            "Madrid, Bilbao and Málaga"
+          ],
+          "correct_option": 3,
+          "supporting_line": "Funciona en Madrid, Bilbao y Málaga."
+        },
+        {
+          "prompt": "Roughly what does it cost to start in a new city, in the first year?",
+          "options": [
+            "Fifty thousand euros",
+            "Five thousand euros",
+            "Half a million euros"
+          ],
+          "correct_option": 1,
+          "supporting_line": "unos cincuenta mil euros el primer año"
+        },
+        {
+          "prompt": "Will the project expand to other countries?",
+          "options": [
+            "Yes, next year",
+            "They don't know yet",
+            "No, never"
+          ],
+          "correct_option": 2,
+          "supporting_line": "todavía no lo sabemos"
+        }
+      ]
+    },
+    "speech.small_talk_afterwards": {
+      "speakers": [
+        "Mercedes",
+        "Diego"
+      ],
+      "lines": [
+        {
+          "speaker": "Mercedes",
+          "text": "Perdone, me ha gustado mucho su charla."
+        },
+        {
+          "speaker": "Diego",
+          "text": "Muchas gracias, es muy amable. ¿Usted también trabaja en el sector?"
+        },
+        {
+          "speaker": "Mercedes",
+          "text": "Sí, soy arquitecta en un estudio de Valencia."
+        },
+        {
+          "speaker": "Diego",
+          "text": "¡Qué interesante! ¿Ha venido a Madrid solo para el congreso?"
+        },
+        {
+          "speaker": "Mercedes",
+          "text": "Sí, vuelvo mañana en el AVE de las nueve."
+        },
+        {
+          "speaker": "Diego",
+          "text": "Pues, si quiere, le mando el artículo que he mencionado."
+        },
+        {
+          "speaker": "Mercedes",
+          "text": "Me encantaría. Le doy mi tarjeta."
+        },
+        {
+          "speaker": "Diego",
+          "text": "Perfecto. ¿Se va a quedar a la cena de esta noche?"
+        },
+        {
+          "speaker": "Mercedes",
+          "text": "No puedo, tengo que preparar una reunión."
+        }
+      ],
+      "questions": [
+        {
+          "prompt": "What does Mercedes do?",
+          "options": [
+            "She's an architect",
+            "She's a journalist",
+            "She's a doctor"
+          ],
+          "correct_option": 1,
+          "supporting_line": "soy arquitecta en un estudio de Valencia"
+        },
+        {
+          "prompt": "When is she going home?",
+          "options": [
+            "Tonight",
+            "Tomorrow, on the nine o'clock train",
+            "Next week"
+          ],
+          "correct_option": 2,
+          "supporting_line": "vuelvo mañana en el AVE de las nueve"
+        },
+        {
+          "prompt": "Why won't she stay for dinner?",
+          "options": [
+            "She has a flight",
+            "She isn't hungry",
+            "She has to prepare for a meeting"
+          ],
+          "correct_option": 3,
+          "supporting_line": "tengo que preparar una reunión"
+        }
+      ]
+    }
+  }
+}

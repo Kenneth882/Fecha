@@ -8,11 +8,13 @@ grades the Review Queue on Days 2 and 3 (mostly Good, some Again). So every Revi
 Review State is one the real endpoints could have produced. About 20 Reviews are due
 today: a first Review always comes back the next day, so Day 3's new items and Day 2's
 items (first reviewed on Day 3) are all due, with the items forgotten on Day 3. Days
-1-3's Listen and Speak Tasks show as Missed: they can't be done yet.
+1-3's Listen and Speak Tasks show as Missed. Today's Listen Tasks are playable on the
+hand-written fallback Listen Dialogues, so the demo needs no Anthropic API key.
 
 Safe to re-run: each run deletes the demo User (their Events, Plans and Reviews go
 with them) and replays the history again, ending on the local today at `now`, so the
-demo never goes stale. Needs the seed vocabulary (`python -m app.load_seed_vocab`).
+demo never goes stale. Needs the seed vocabulary and the fallback Listen Dialogues,
+both loaded by `python -m app.load_seed_vocab`.
 """
 
 import asyncio
@@ -24,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, load_settings
 from app.db.session import create_engine, create_session_factory
+from app.models.listen import ListenDialogue
 from app.models.user import User
 from app.models.vocab import VocabItem
 from app.schemas.event import EventCreate, EventDetail
@@ -46,7 +49,8 @@ AGAIN_EVERY = 10
 
 
 class SeedVocabMissingError(RuntimeError):
-    """There are no Spanish Vocab Items for the demo Plan's Vocab Tasks to teach."""
+    """The seed content isn't loaded: there are no Spanish Vocab Items for the demo
+    Plan's Vocab Tasks to teach, or no fallback Listen Dialogues for its Listen Tasks."""
 
 
 async def seed_demo(session: AsyncSession, settings: Settings, now: datetime) -> EventDetail:
@@ -54,11 +58,16 @@ async def seed_demo(session: AsyncSession, settings: Settings, now: datetime) ->
     Spanish, `DEMO_DAYS_OUT` days after their local today at `now`, created
     `DEMO_DAYS_DONE` days before it with those days' Vocab Tasks and Reviews done.
 
-    Raises SeedVocabMissingError, changing nothing, if no seed vocabulary is loaded.
+    Raises SeedVocabMissingError, changing nothing, if the seed vocabulary or the
+    fallback Listen Dialogues aren't loaded.
     """
     if not await _has_spanish_vocab(session):
         raise SeedVocabMissingError(
             "No Spanish Vocab Items to teach: run `python -m app.load_seed_vocab` first"
+        )
+    if not await _has_spanish_fallbacks(session):
+        raise SeedVocabMissingError(
+            "No Spanish fallback Listen Dialogues: run `python -m app.load_seed_vocab` first"
         )
     signup = UserCreate(
         email=settings.demo_email,
@@ -97,6 +106,10 @@ async def _has_spanish_vocab(session: AsyncSession) -> bool:
             select(exists().where(VocabItem.language == "es", VocabItem.retired_at.is_(None)))
         )
     )
+
+
+async def _has_spanish_fallbacks(session: AsyncSession) -> bool:
+    return bool(await session.scalar(select(exists().where(ListenDialogue.live_fallback("es")))))
 
 
 def _noon(day: date) -> datetime:

@@ -1,9 +1,21 @@
 """Helpers for API tests of the seeded demo User."""
 
+from datetime import datetime
+
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.services.fallback_listen import load_fallback_dialogues, read_fallback_dialogues
+from app.services.seed_vocab import load_seed_vocab, read_seed_vocab
 from tests.auth import RegisteredUser, log_in
+
+
+async def load_seed_content(session: AsyncSession, now: datetime) -> None:
+    """What `python -m app.load_seed_vocab` loads: the seed vocabulary and the fallback
+    Listen Dialogues, which the demo seed needs."""
+    await load_seed_vocab(session, read_seed_vocab(), now)
+    await load_fallback_dialogues(session, read_fallback_dialogues(), now)
 
 
 async def log_in_as_demo(client: AsyncClient, settings: Settings) -> RegisteredUser:

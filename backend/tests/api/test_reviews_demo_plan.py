@@ -15,10 +15,9 @@ from app.core.config import Settings
 from app.models.review import Review, ReviewState
 from app.seed import DEMO_DAYS_OUT, seed_demo
 from app.services.planner import vocab_cap
-from app.services.seed_vocab import load_seed_vocab, read_seed_vocab
 from tests.auth import RegisteredUser
 from tests.conftest import FIXED_NOW, Clock
-from tests.demo import log_in_as_demo
+from tests.demo import load_seed_content, log_in_as_demo
 from tests.events import EVENTS
 from tests.reviews import due, grade
 from tests.tasks import TASKS, tasks_today
@@ -53,7 +52,7 @@ async def clear_queue(
 async def test_clearing_the_queue_daily_reviews_every_item_in_the_final_window_within_budget(
     client: AsyncClient, db_session: AsyncSession, settings: Settings, clock: Clock
 ) -> None:
-    await load_seed_vocab(db_session, read_seed_vocab(), FIXED_NOW)
+    await load_seed_content(db_session, FIXED_NOW)
     event = await seed_demo(db_session, settings, FIXED_NOW)
     demo = await log_in_as_demo(client, settings)
     event_id = str(event.id)

@@ -14,6 +14,7 @@ SERVICES = Path(__file__).parents[2] / "app" / "services"
 
 ALLOWED = {
     "catalog.py": {"pydantic"},
+    "listen_content.py": {"pydantic"},
     "planner.py": {"pydantic", "app.services.catalog"},
     "srs.py": {"pydantic", "app.services.planner"},
     "task_status.py": set(),

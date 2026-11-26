@@ -789,7 +789,7 @@
           "tasks"
         ],
         "summary": "Complete",
-        "description": "Complete a Vocab Task, introducing its batch: each item is first due for Review\nthe next day. Completing it again changes nothing.",
+        "description": "Complete a Vocab Task, introducing its batch: each item is first due for Review\nthe next day. Completing it again changes nothing. A Listen Task is completed by\nanswering its questions instead.",
         "operationId": "tasks-complete",
         "security": [
           {
@@ -815,6 +815,174 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/TaskCompletion"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{task_id}/listen": {
+      "get": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Listen",
+        "description": "A Listen Task's Listen Dialogue and Comprehension Questions, with the answers\ngiven so far. The first call fixes the dialogue; later calls return the same one.\nA question's correct option is sent only once it's answered.",
+        "operationId": "tasks-listen",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListenTask"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/tasks/{task_id}/answers": {
+      "post": {
+        "tags": [
+          "tasks"
+        ],
+        "summary": "Answer",
+        "description": "Answer one of a Listen Task's Comprehension Questions, for good: the result says\nwhether it was right and which option was. The third answer completes the Task.",
+        "operationId": "tasks-answer",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ListenAnswerCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListenAnswerResult"
                 }
               }
             }
@@ -1361,6 +1529,34 @@
         "title": "EventType",
         "description": "The kind of Event. It decides which Scenarios are available."
       },
+      "GivenAnswer": {
+        "properties": {
+          "choice": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Choice"
+          },
+          "correct": {
+            "type": "boolean",
+            "title": "Correct"
+          },
+          "correct_option": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Correct Option"
+          }
+        },
+        "type": "object",
+        "required": [
+          "choice",
+          "correct",
+          "correct_option"
+        ],
+        "title": "GivenAnswer",
+        "description": "The User's answer to a Comprehension Question, now that it's final."
+      },
       "Grade": {
         "type": "string",
         "enum": [
@@ -1397,6 +1593,181 @@
         ],
         "title": "Level",
         "description": "The User's proficiency in the Event's target language (a trimmed CEFR scale)."
+      },
+      "ListenAnswerCreate": {
+        "properties": {
+          "question": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Question"
+          },
+          "choice": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Choice"
+          }
+        },
+        "type": "object",
+        "required": [
+          "question",
+          "choice"
+        ],
+        "title": "ListenAnswerCreate",
+        "description": "An answer to one Comprehension Question: its number and the chosen option's."
+      },
+      "ListenAnswerResult": {
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Task Id"
+          },
+          "question": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Question"
+          },
+          "choice": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Choice"
+          },
+          "correct": {
+            "type": "boolean",
+            "title": "Correct"
+          },
+          "correct_option": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Correct Option"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TaskStatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "task_id",
+          "question",
+          "choice",
+          "correct",
+          "correct_option",
+          "status"
+        ],
+        "title": "ListenAnswerResult",
+        "description": "Whether the answer was right, the correct option, and the Task's status: the\nthird answer completes it."
+      },
+      "ListenLine": {
+        "properties": {
+          "speaker": {
+            "type": "string",
+            "title": "Speaker"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          }
+        },
+        "type": "object",
+        "required": [
+          "speaker",
+          "text"
+        ],
+        "title": "ListenLine",
+        "description": "One line of the Listen Dialogue: who says it, and what they say."
+      },
+      "ListenQuestion": {
+        "properties": {
+          "number": {
+            "type": "integer",
+            "maximum": 3.0,
+            "minimum": 1.0,
+            "title": "Number"
+          },
+          "prompt": {
+            "type": "string",
+            "title": "Prompt"
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Options"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GivenAnswer"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "number",
+          "prompt",
+          "options",
+          "answer"
+        ],
+        "title": "ListenQuestion",
+        "description": "A Comprehension Question with its three options. `answer` is null until the User\nanswers it, so the correct option is never sent before then."
+      },
+      "ListenTask": {
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Task Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TaskStatus"
+          },
+          "answerable": {
+            "type": "boolean",
+            "title": "Answerable"
+          },
+          "speakers": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Speakers"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/ListenLine"
+            },
+            "type": "array",
+            "title": "Lines"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/ListenQuestion"
+            },
+            "type": "array",
+            "title": "Questions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "task_id",
+          "status",
+          "answerable",
+          "speakers",
+          "lines",
+          "questions"
+        ],
+        "title": "ListenTask",
+        "description": "A Listen Task's Listen Dialogue and its three Comprehension Questions.\n\nThe dialogue is fixed the first time the Task is opened or answered, so it's the\nsame every time. `answerable` is true only while the questions can still be\nanswered: on the Task's own Plan Day, while the Event is Active and the Task isn't\ncomplete. A Missed Task, a later Plan Day's, or a Past Event's is read-only."
       },
       "LoginRequest": {
         "properties": {

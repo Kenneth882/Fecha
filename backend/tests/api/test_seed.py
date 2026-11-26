@@ -9,9 +9,10 @@ from app.core.config import Settings
 from app.seed import SeedVocabMissingError, seed_demo
 from app.services.seed_vocab import load_seed_vocab, read_seed_vocab
 from tests.conftest import Clock
-from tests.demo import log_in_as_demo
+from tests.demo import load_seed_content, log_in_as_demo
 from tests.events import EVENTS
 from tests.reviews import due
+from tests.tasks import TASKS, tasks_today
 
 
 async def demo_events(client: AsyncClient, settings: Settings) -> list[Any]:
@@ -31,7 +32,7 @@ async def demo_events(client: AsyncClient, settings: Settings) -> list[Any]:
 async def test_the_demo_user_can_log_in_and_sees_a_spanish_interview_12_days_out(
     client: AsyncClient, db_session: AsyncSession, settings: Settings, clock: Clock
 ) -> None:
-    await load_seed_vocab(db_session, read_seed_vocab(), clock.now)
+    await load_seed_content(db_session, clock.now)
     # The clock reads 13:00 on 2026-11-10 in Madrid, the demo User's timezone.
     await seed_demo(db_session, settings, clock.now)
 
@@ -50,7 +51,7 @@ async def test_the_demo_user_can_log_in_and_sees_a_spanish_interview_12_days_out
 async def test_re_seeding_on_a_later_day_leaves_one_fresh_event_12_days_out(
     client: AsyncClient, db_session: AsyncSession, settings: Settings, clock: Clock
 ) -> None:
-    await load_seed_vocab(db_session, read_seed_vocab(), clock.now)
+    await load_seed_content(db_session, clock.now)
     await seed_demo(db_session, settings, clock.now)
     # Three days later, the 2026-11-22 Event would be only 9 days out.
     clock.now = datetime(2026, 11, 13, 9, 0, tzinfo=UTC)
@@ -69,7 +70,7 @@ async def test_re_seeding_on_a_later_day_leaves_one_fresh_event_12_days_out(
 async def test_seeding_twice_leaves_the_demo_user_on_day_4_of_15_with_reviews_due(
     client: AsyncClient, db_session: AsyncSession, settings: Settings, clock: Clock
 ) -> None:
-    await load_seed_vocab(db_session, read_seed_vocab(), clock.now)
+    await load_seed_content(db_session, clock.now)
     await seed_demo(db_session, settings, clock.now)
     await seed_demo(db_session, settings, clock.now)
 
@@ -91,7 +92,7 @@ async def test_seeding_twice_leaves_the_demo_user_on_day_4_of_15_with_reviews_du
 async def test_the_demo_users_first_three_days_have_their_vocab_tasks_done(
     client: AsyncClient, db_session: AsyncSession, settings: Settings, clock: Clock
 ) -> None:
-    await load_seed_vocab(db_session, read_seed_vocab(), clock.now)
+    await load_seed_content(db_session, clock.now)
     await seed_demo(db_session, settings, clock.now)
 
     [event] = await demo_events(client, settings)
@@ -114,5 +115,38 @@ async def test_the_demo_users_first_three_days_have_their_vocab_tasks_done(
 async def test_seeding_without_the_seed_vocabulary_says_to_load_it(
     db_session: AsyncSession, settings: Settings, clock: Clock
 ) -> None:
+    with pytest.raises(SeedVocabMissingError, match="load_seed_vocab"):
+        await seed_demo(db_session, settings, clock.now)
+
+
+async def test_the_demo_users_listen_task_today_is_playable_on_the_fallback_dialogue(
+    client: AsyncClient, db_session: AsyncSession, settings: Settings, clock: Clock
+) -> None:
+    await load_seed_content(db_session, clock.now)
+    await seed_demo(db_session, settings, clock.now)
+    demo = await log_in_as_demo(client, settings)
+    [event] = (await client.get(EVENTS, headers=demo.headers)).json()
+    [listen, *_] = [
+        t for t in await tasks_today(client, demo, event["id"]) if t["kind"] == "listen"
+    ]
+
+    opened = await client.get(f"{TASKS}/{listen['id']}/listen", headers=demo.headers)
+    for question in (1, 2, 3):
+        answered = await client.post(
+            f"{TASKS}/{listen['id']}/answers",
+            json={"question": question, "choice": 1},
+            headers=demo.headers,
+        )
+        assert answered.status_code == 200, answered.text
+
+    assert (opened.json()["answerable"], len(opened.json()["questions"])) == (True, 3)
+    assert answered.json()["status"] == "completed"
+
+
+async def test_seeding_without_the_fallback_listen_dialogues_says_to_load_them(
+    db_session: AsyncSession, settings: Settings, clock: Clock
+) -> None:
+    await load_seed_vocab(db_session, read_seed_vocab(), clock.now)
+
     with pytest.raises(SeedVocabMissingError, match="load_seed_vocab"):
         await seed_demo(db_session, settings, clock.now)
