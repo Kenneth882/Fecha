@@ -2,8 +2,9 @@
 
 One method per content kind, each taking a (language, Scenario, Level) key and
 returning validated content with what the call cost. The worker's composition root
-picks the implementation: `OffContentGenerator` when there's no API key, the real one
-(instructor and the Anthropic SDK) from #70, and a fake in tests. Pure: no I/O here.
+picks the implementation: `OffContentGenerator` when there's no API key,
+`ClaudeContentGenerator` (instructor and the Anthropic SDK) when there is, and a fake in
+tests. Pure: no I/O here.
 """
 
 from dataclasses import dataclass
