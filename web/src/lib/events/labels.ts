@@ -40,8 +40,3 @@ export const TASK_STATUSES: Record<Schemas["TaskStatus"], string> = {
 };
 
 export const DIFFICULTIES: Record<number, string> = { 1: "Easy", 2: "Medium", 3: "Hard" };
-
-/** Only Vocab Tasks have a screen yet; Listen and Speak come in Weeks 4–5. */
-export function isTaskLocked(kind: Schemas["TaskKind"]): boolean {
-  return kind !== "vocab";
-}
