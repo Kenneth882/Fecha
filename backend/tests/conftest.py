@@ -10,11 +10,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
 from app.core.config import ROOT_ENV_FILE, Settings
-from app.core.deps import get_db, get_now
+from app.core.deps import get_db, get_job_queue, get_now
 from app.main import create_app
 from tests.auth import RegisteredUser, register_and_log_in
 from tests.clients import running_client
 from tests.db.fixtures import build_test_schema, transactional_session
+from tests.jobs import FakeJobQueue
 
 TEST_JWT_SECRET = "test-secret-that-is-at-least-32-bytes-long"
 
@@ -62,14 +63,21 @@ def settings(test_env: TestEnv) -> Settings:
 
 
 @pytest.fixture
-def app(settings: Settings, db_session: AsyncSession) -> FastAPI:
-    """The app under test, with `get_db` swapped for `db_session`."""
+def job_queue() -> FakeJobQueue:
+    return FakeJobQueue()
+
+
+@pytest.fixture
+def app(settings: Settings, db_session: AsyncSession, job_queue: FakeJobQueue) -> FastAPI:
+    """The app under test, with `get_db` swapped for `db_session` and the job queue for
+    `job_queue`, so no test queues a real job."""
     app = create_app(settings)
 
     async def override_get_db() -> AsyncIterator[AsyncSession]:
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_job_queue] = lambda: job_queue
     return app
 
 

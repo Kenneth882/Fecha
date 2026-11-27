@@ -247,7 +247,8 @@ The API logs JSON lines to stdout. Each request writes one access line (`method`
 | Task | id, milestone_id, date, kind, position, estimated_minutes, vocab_batch_size, vocab_batch_fixed_at, listen_dialogue_id, listen_dialogue_fixed_at, completed_at | kind = vocab, listen, speak; `date` is the Plan Day; `vocab_batch_size` is how many Vocab Items a Vocab Task teaches, set by the planner (required for vocab, null otherwise, by a check constraint); `listen_dialogue_id` is a Listen Task's Listen Dialogue, fixed on first open or answer and never changed (listen only, by a check constraint) |
 | VocabItem | id, scenario_slug, language, level, item_key, phrase, translation, position, source, retired_at | Shared across Users. (scenario_slug, language, item_key) unique; `position` orders a Scenario's items, easiest and most essential first; level null = suits every Level; source = seed, generated. Seed items come from `app/data/seed-vocab-es.json`, upserted by `load_seed_vocab`; items that leave the file are retired, never deleted |
 | VocabTaskItem | task_id, position, vocab_item_id | A Vocab Task's batch, written once when it's fixed (on first open or completion; `tasks.vocab_batch_fixed_at` records when, so an empty batch stays fixed too). (task_id, vocab_item_id) unique. Two of an Event's Tasks that can still be completed never share an item; a Missed Task's items go back into the pool |
-| ListenDialogue | id, scenario_slug, language, level, source, speakers, lines, questions, created_at, retired_at | Shared across Users. source = fallback (level null: suits every Level) or generated (level set), by a check constraint; `speakers`, `lines` and `questions` are JSONB holding a validated `ListenDialogueContent`. Never edited in place: a changed or bad one is retired, and Listen Tasks keep theirs. At most one live fallback per (scenario_slug, language); fallbacks come from `app/data/fallback-listen-es.json` (added in #67) |
+| ListenDialogue | id, scenario_slug, language, level, source, speakers, lines, questions, created_at, retired_at | Shared across Users. source = fallback (level null: suits every Level) or generated (level set), by a check constraint; `speakers`, `lines` and `questions` are JSONB holding a validated `ListenDialogueContent`. Never edited in place: a changed or bad one is retired, and Listen Tasks keep theirs. At most one live fallback per (scenario_slug, language); fallbacks come from `app/data/fallback-listen-es.json` (added in #67). Generated ones are added by the worker, up to 3 per (scenario_slug, language, level); a Listen Task takes one its Event hasn't used, else the one it used longest ago, else the fallback (#69) |
+| LlmCall | id, content_kind, scenario_slug, language, level, model, input_tokens, output_tokens, cost_usd, latency_ms, outcome, called_at | One row per content generation attempt. outcome = generated, fallback_after_failure, skipped_no_key, skipped_cap; a skipped attempt made no call (no model or latency, cost 0). The day's (UTC) total `cost_usd` is checked against `LLM_DAILY_BUDGET_USD` before each call (added in #69) |
 | ListenAnswer | task_id, question, choice, is_correct, answered_at | A User's final answer to one Comprehension Question of a Listen Task; (task_id, question) is the key, so a question takes one answer. question and choice are 1–3 (added in #67) |
 | RefreshToken | id, user_id, token_hash, family_id, created_at, last_used_at, expires_at, revoked_at, replaced_by_id | token_hash (unique) is the SHA-256 of a random 32-byte token; the token itself is never stored. A family is one session: every refresh adds its next token and revokes the last, linked by replaced_by_id. expires_at is 30 days after the token was issued, never past 90 days after the family's first login. Revoked rows are kept, to detect reuse (ADR 0007) |
 | ReviewState | event_id, vocab_item_id, introduced_on, ease, interval_days, repetitions, lapses, due_on, reviewed_in_final_window | One row per Introduced Vocab Item per Event, (event_id, vocab_item_id) the key: nothing carries over between Events (ADR 0001). Created when a Vocab Task is completed and updated by `srs.py`; `due_on` is null once nothing more is scheduled before the Event Day |
@@ -324,6 +325,8 @@ backend/
 │   ├── services/
 │   │   ├── health.py      # readiness checks
 │   │   ├── catalog.py     # the Scenario Catalog: fixed Scenarios per Event Type, pure
+│   │   ├── content_generator.py  # the content generator seam (one method per content kind), pure
+│   │   ├── content_generation.py # fill an Event's shared content pools, in the worker (ADR 0008)
 │   │   ├── fallback_listen.py  # reads the fallback Listen Dialogues file and loads it
 │   │   ├── events.py      # create/read Events and their Plans; one Active Event per User
 │   │   ├── listen_content.py  # what a Listen Dialogue holds and the checks it passes, pure
@@ -337,13 +340,15 @@ backend/
 │   │   ├── llm.py         # plan/scenario generation (planned)
 │   │   ├── voice.py       # STT/TTS pipeline (planned)
 │   │   └── scoring.py     # readiness score (planned)
-│   └── workers/tasks.py   # arq jobs and WorkerSettings; plan + report jobs (planned)
+│   └── workers/
+│       ├── tasks.py       # arq jobs (generate_event_content) and WorkerSettings; report jobs (planned)
+│       └── queue.py       # the job queue routes use to queue jobs (`Depends(get_job_queue)`)
 ├── alembic/
 ├── tests/
 │   ├── unit/              # pure logic: local time, srs, planner, scoring (no DB)
 │   ├── api/               # endpoint tests with dependency overrides
 │   ├── db/                # transactional test session, seed vocabulary and fallback loaders
-│   └── workers/           # arq worker round-trip against test Redis
+│   └── workers/           # the content job with a fake generator; arq round-trips against test Redis
 └── pyproject.toml
 web/                       # Next.js (App Router) + TypeScript + Tailwind PWA, http://localhost:3000
 ├── Dockerfile             # standalone Next.js server for the web service

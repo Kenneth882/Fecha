@@ -11,6 +11,7 @@ from app.core.config import Settings
 from app.core.errors import AppError
 from app.core.security import access_token_subject
 from app.models.user import Role, User
+from app.workers.queue import JobQueue
 
 
 def get_settings(request: Request) -> Settings:
@@ -43,6 +44,11 @@ def get_now() -> datetime:
 def get_redis(request: Request) -> Redis:
     """The app's shared Redis client, opened in `lifespan`."""
     return cast(Redis, request.app.state.redis)
+
+
+def get_job_queue(request: Request) -> JobQueue:
+    """The queue for the worker's jobs, opened in `lifespan`. Tests swap in a fake."""
+    return cast(JobQueue, request.app.state.job_queue)
 
 
 class NotAuthenticatedError(AppError):

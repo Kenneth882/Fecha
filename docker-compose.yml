@@ -18,6 +18,10 @@ x-backend: &backend
     # For `docker compose exec api python -m app.seed`; defaults match app/core/config.py.
     DEMO_EMAIL: ${DEMO_EMAIL:-demo@example.com}
     DEMO_PASSWORD: ${DEMO_PASSWORD:-local-demo-only-2026!}
+    # Optional: without a key, the worker's content generation is off.
+    ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    LLM_MODEL: ${LLM_MODEL:-claude-sonnet-5-5}
+    LLM_DAILY_BUDGET_USD: ${LLM_DAILY_BUDGET_USD:-2}
   restart: unless-stopped
 
 services:
@@ -41,6 +45,12 @@ services:
     <<: *backend
     command: ["arq", "app.workers.tasks.WorkerSettings"]
     depends_on:
+      # The api runs the migrations on start. Jobs are queued only once it's serving,
+      # so by the time the worker gets one, its tables exist.
+      api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
 

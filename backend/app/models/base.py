@@ -19,7 +19,7 @@ class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 
-def str_enum(enum: type[StrEnum], name: str) -> Enum:
+def str_enum(enum: type[StrEnum], name: str, length: int = 16) -> Enum:
     """A StrEnum stored as its values in a VARCHAR with a CHECK constraint, like `role`."""
     return Enum(
         enum,
@@ -27,5 +27,5 @@ def str_enum(enum: type[StrEnum], name: str) -> Enum:
         native_enum=False,
         create_constraint=True,
         values_callable=lambda members: [member.value for member in members],
-        length=16,
+        length=length,
     )

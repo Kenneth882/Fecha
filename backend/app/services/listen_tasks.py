@@ -1,21 +1,21 @@
 """Opening and answering a User's Listen Tasks.
 
 A Listen Task's Listen Dialogue is fixed the first time it's opened or answered, and
-stored on the Task, so it's the same every time. For now that's always its Scenario's
-hand-written fallback; generated dialogues come with #69. Each Comprehension Question
-takes one final answer, and the third answer completes the Task in the same
-transaction. Every fix and answer takes the Event's lock first (`lock_event`).
+stored on the Task, so it's the same every time: a generated one from its Scenario's
+pool at the Event's Level when there is one, else the hand-written fallback. Each
+Comprehension Question takes one final answer, and the third answer completes the Task
+in the same transaction. Every fix and answer takes the Event's lock first (`lock_event`).
 """
 
 import uuid
 from datetime import datetime
 
 from fastapi import status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import AppError
-from app.models.event import Event, Task
+from app.models.event import Event, Milestone, Plan, Task
 from app.models.listen import ListenAnswer, ListenDialogue
 from app.models.user import User
 from app.schemas.listen import (
@@ -160,12 +160,27 @@ async def _fix_dialogue(
 async def _choose_dialogue(
     session: AsyncSession, event: Event, scenario_slug: str
 ) -> ListenDialogue:
-    """The Listen Dialogue a Listen Task of this Scenario would get now: its live
-    hand-written fallback in the Event's language.
+    """The Listen Dialogue a Listen Task of this Scenario would get now.
 
-    Raises LookupError if there's none, which never happens once the fallback file is
-    loaded: it covers every Scenario, and a test guards that.
+    A live generated one for the Scenario at the Event's language and Level that none of
+    the Event's Listen Tasks has yet, oldest first; else, once the pool is used up, the
+    one the Event used longest ago; else, if none have been generated, the Scenario's
+    live hand-written fallback.
+
+    Raises LookupError if there's no fallback either, which never happens once the
+    fallback file is loaded: it covers every Scenario, and a test guards that.
     """
+    pool = list(
+        await session.scalars(
+            select(ListenDialogue)
+            .where(ListenDialogue.live_generated(scenario_slug, event.target_language, event.level))
+            .order_by(ListenDialogue.created_at, ListenDialogue.id)
+        )
+    )
+    if pool:
+        last_used = await _last_used(session, event, [dialogue.id for dialogue in pool])
+        unused = [dialogue for dialogue in pool if dialogue.id not in last_used]
+        return unused[0] if unused else min(pool, key=lambda d: last_used[d.id])
     dialogue = await session.scalar(
         select(ListenDialogue).where(
             ListenDialogue.scenario_slug == scenario_slug,
@@ -178,6 +193,26 @@ async def _choose_dialogue(
             "run `python -m app.load_seed_vocab`"
         )
     return dialogue
+
+
+async def _last_used(
+    session: AsyncSession, event: Event, dialogue_ids: list[uuid.UUID]
+) -> dict[uuid.UUID, datetime]:
+    """When the Event's Listen Tasks, in any Plan version, last fixed each of these
+    dialogues. Dialogues it never used are left out."""
+    rows = await session.execute(
+        select(Task.listen_dialogue_id, func.max(Task.listen_dialogue_fixed_at))
+        .join(Milestone, Task.milestone_id == Milestone.id)
+        .join(Plan, Milestone.plan_id == Plan.id)
+        .where(Plan.event_id == event.id, Task.listen_dialogue_id.in_(dialogue_ids))
+        .group_by(Task.listen_dialogue_id)
+    )
+    # A Task with a dialogue always has its fixed_at (a check constraint).
+    return {
+        dialogue_id: fixed_at
+        for dialogue_id, fixed_at in rows
+        if dialogue_id is not None and fixed_at is not None
+    }
 
 
 async def _fixed_dialogue(session: AsyncSession, task: Task) -> ListenDialogue:

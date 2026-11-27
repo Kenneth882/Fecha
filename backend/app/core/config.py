@@ -1,8 +1,9 @@
 from datetime import timedelta
+from decimal import Decimal
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, SecretStr, ValidationError
+from pydantic import Field, SecretStr, ValidationError, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # The repo-root .env, anchored to this file rather than the working directory.
@@ -49,6 +50,19 @@ class Settings(BaseSettings):
 
     # Level for the app's JSON logs (the per-request access line is INFO).
     log_level: LogLevel = "INFO"
+
+    # Content generation, in the worker. Without a key, generation is off and every
+    # Listen Task uses its Scenario's hand-written fallback.
+    anthropic_api_key: SecretStr | None = None
+    llm_model: str = Field(default="claude-sonnet-5-5", min_length=1)
+    # Once the day's LLM calls (UTC) have cost this much, the worker makes no more.
+    llm_daily_budget_usd: Decimal = Field(default=Decimal(2), ge=0)
+
+    @field_validator("anthropic_api_key", mode="before")
+    @classmethod
+    def _blank_key_is_no_key(cls, value: object) -> object:
+        """`ANTHROPIC_API_KEY=` (as compose passes an unset one) means no key."""
+        return None if isinstance(value, str) and not value.strip() else value
 
     @property
     def refresh_token_idle(self) -> timedelta:

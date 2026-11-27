@@ -357,7 +357,7 @@
           "events"
         ],
         "summary": "Create",
-        "description": "Create the User's Event and its first Plan, and return the Event's detail.",
+        "description": "Create the User's Event and its first Plan, and return the Event's detail.\n\nIts content (generated Listen Dialogues) is filled in the background afterwards.",
         "operationId": "events-create",
         "requestBody": {
           "content": {
