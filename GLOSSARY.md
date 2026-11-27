@@ -122,7 +122,7 @@ _Avoid_: Skipped task, overdue task
 ### Practice
 
 **Vocab Item**:
-A phrase in a target language, with its translation, belonging to a Scenario. Shared across Users. It suits every Level unless it's made for a particular one.
+A phrase in a target language, with its translation, belonging to a Scenario. Shared across Users. A hand-written seed item suits every Level; a generated one is made for one Level and comes after every seed item.
 _Avoid_: Word, card, flashcard, term
 
 **Introduced Vocab Item**:

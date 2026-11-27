@@ -53,13 +53,13 @@ LEVEL_BRIEFS: dict[Level, str] = {
 # speaking to an audience (`ustedes`).
 _SWITCHES_TO_TU = frozenset({"speech.small_talk_afterwards"})
 
-_EVENT_SETTINGS: dict[EventType, str] = {
+EVENT_SETTINGS: dict[EventType, str] = {
     EventType.INTERVIEW: "a job interview in Spain",
     EventType.RELOCATION: "moving to and settling in Spain",
     EventType.SPEECH: "giving a speech in Spain",
 }
 
-_LANGUAGES = {"es": "Spanish"}
+LANGUAGES = {"es": "Spanish"}
 
 SYSTEM_PROMPT = (
     "You write short listening-comprehension material for adults preparing for a real "
@@ -82,16 +82,16 @@ def listen_dialogue_prompt(language: str, scenario: Scenario, level: Level) -> P
 
     Raises KeyError for a language there's no prompt for (only Spanish in the MVP).
     """
-    language_name = _LANGUAGES[language]
+    language_name = LANGUAGES[language]
     return Prompt(
         system=SYSTEM_PROMPT,
         user="\n\n".join(
             (
                 f"Write a short conversation in {language_name} for a learner preparing "
-                f"for {_EVENT_SETTINGS[scenario.event_type]}. The situation: "
+                f"for {EVENT_SETTINGS[scenario.event_type]}. The situation: "
                 f'"{scenario.title}".',
                 f"Level: {LEVEL_BRIEFS[level]}",
-                f"Register: {_register(scenario)}",
+                f"Register: {register_brief(scenario)}",
                 (
                     f"The conversation has {MIN_LINES} to {MAX_LINES} lines between exactly "
                     "two speakers, each with a common Spanish first name (or a first name "
@@ -114,7 +114,8 @@ def listen_dialogue_prompt(language: str, scenario: Scenario, level: Level) -> P
     )
 
 
-def _register(scenario: Scenario) -> str:
+def register_brief(scenario: Scenario) -> str:
+    """How the Spanish should sound in this Scenario: Spain's, formal or not."""
     base = (
         "Spanish as spoken in Spain (Castilian): Spain's vocabulary and expressions, "
         "'vosotros' rather than 'ustedes' for an informal 'you all', and no Latin "

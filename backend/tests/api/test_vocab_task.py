@@ -2,19 +2,25 @@
 it introduces the batch's Vocab Items."""
 
 import uuid
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any
 
 import pytest
 from httpx import AsyncClient
+from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import Settings
 from app.models.review import ReviewState
 from app.models.vocab import VocabItem
 from app.services.planner import Level
+from app.workers.tasks import generate_event_content
 from tests.auth import RegisteredUser, register_and_log_in
 from tests.conftest import FIXED_NOW, Clock
+from tests.content import FakeGenerator
 from tests.events import EVENTS, abandon, create_event
 from tests.tasks import (
     INTRODUCING_YOURSELF,
@@ -347,3 +353,71 @@ async def test_another_users_task_is_a_404_identical_to_an_unknown_id(
     assert for_theirs.status_code == for_unknown.status_code == 404
     assert without_request_id(for_theirs.json()) == without_request_id(for_unknown.json())
     assert for_theirs.json()["error"]["code"] == "task_not_found"
+
+
+async def generate_content(
+    settings: Settings, db_session: AsyncSession, clock: Clock, event_id: str
+) -> None:
+    """Run the per-Event content job, with the fake generator, on this test's session."""
+
+    @asynccontextmanager
+    async def session_factory() -> AsyncIterator[AsyncSession]:
+        yield db_session
+
+    redis = Redis.from_url(settings.redis_url.get_secret_value())
+    try:
+        ctx = {
+            "settings": settings,
+            "session_factory": session_factory,
+            "redis": redis,
+            "generator": FakeGenerator(),
+            "now": lambda: clock.now,
+        }
+        await generate_event_content(ctx, event_id)
+    finally:
+        await redis.aclose()
+
+
+async def test_batches_continue_with_generated_items_for_the_events_level_after_the_seed(
+    client: AsyncClient,
+    user: RegisteredUser,
+    clock: Clock,
+    db_session: AsyncSession,
+    settings: Settings,
+) -> None:
+    await add_items(db_session, INTRODUCING_YOURSELF, 4)
+    # Another User's A2 Event generates first, so its items sit before the B1 ones.
+    other = await register_and_log_in(client, email="bea@example.com")
+    a2 = (await create_event(client, other, level="A2")).json()
+    await generate_content(settings, db_session, clock, a2["id"])
+    event = (await create_event(client, user)).json()
+    await generate_content(settings, db_session, clock, event["id"])
+    first, second, _, _ = await tasks_today(client, user, event["id"])
+
+    first_batch = await open_vocab(client, user, first["id"])
+    second_batch = await open_vocab(client, user, second["id"])
+
+    generated = [f"{INTRODUCING_YOURSELF} B1 {n}" for n in range(10)]
+    assert phrases(first_batch) == [f"frase {n}" for n in range(1, 5)] + generated[:2]
+    assert phrases(second_batch) == generated[2:8]
+
+
+async def test_completing_a_task_introduces_its_generated_items_like_seed_ones(
+    client: AsyncClient,
+    user: RegisteredUser,
+    clock: Clock,
+    db_session: AsyncSession,
+    settings: Settings,
+) -> None:
+    await add_items(db_session, INTRODUCING_YOURSELF, 4)
+    event = (await create_event(client, user)).json()
+    await generate_content(settings, db_session, clock, event["id"])
+    first, _, _, _ = await tasks_today(client, user, event["id"])
+    await open_vocab(client, user, first["id"])
+
+    await complete(client, user, first["id"])
+
+    introduced = [phrase for phrase, _, _ in await review_states(db_session)]
+    assert introduced == [f"frase {n}" for n in range(1, 5)] + [
+        f"{INTRODUCING_YOURSELF} B1 {n}" for n in range(2)
+    ]

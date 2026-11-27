@@ -18,6 +18,7 @@ ALLOWED = {
         "app.services.catalog",
         "app.services.listen_content",
         "app.services.planner",
+        "app.services.vocab_content",
     },
     "listen_content.py": {"pydantic"},
     "listen_prompts.py": {
@@ -29,6 +30,12 @@ ALLOWED = {
     "planner.py": {"pydantic", "app.services.catalog"},
     "srs.py": {"pydantic", "app.services.planner"},
     "task_status.py": set(),
+    "vocab_content.py": {"pydantic"},
+    "vocab_prompts.py": {
+        "app.services.catalog",
+        "app.services.listen_prompts",
+        "app.services.planner",
+    },
 }
 
 
