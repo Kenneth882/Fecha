@@ -1,17 +1,19 @@
 """Filling an Event's shared content through the content generator, in the worker.
 
 Postgres is the content store and the cache (ADR 0008): a (language, Scenario, Level)
-key whose pool is full is skipped, so running this again for the same Event, or for
+key that's already filled is skipped, so running this again for the same Event, or for
 another Event with the same keys, makes no new calls. Redis only holds a short lock per
 key, so two jobs never fill the same key at once. It never changes an Event's
 Milestones or Tasks (ADR 0004).
 """
 
+import hashlib
 import logging
 import time
 import uuid
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 
@@ -23,13 +25,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.event import Event, Milestone, Plan
 from app.models.listen import ListenDialogue, ListenSource
 from app.models.llm_call import ContentKind, LlmCall, LlmOutcome
+from app.models.vocab import GENERATED_KEY_PREFIX, VocabItem, VocabSource
 from app.services.catalog import stored_scenario
 from app.services.content_generator import (
     ContentGenerator,
+    Generation,
     GenerationFailedError,
     GenerationSkippedError,
 )
 from app.services.planner import Level
+from app.services.vocab_content import (
+    GENERATED_POSITIONS_AFTER,
+    VOCAB_ITEM_COUNT,
+    new_items,
+    phrase_key,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -54,40 +64,49 @@ async def fill_event_content(
     daily_budget_usd: Decimal,
     now: Callable[[], datetime],
 ) -> Counter[LlmOutcome]:
-    """Top up the Listen Dialogue pool of each Scenario in the Event's Current Plan, at
-    the Event's language and Level, and return how the attempts ended.
+    """For each Scenario in the Event's Current Plan, at the Event's language and Level,
+    top up the Listen Dialogue pool and add the Level's generated Vocab Items if it has
+    none yet; return how the attempts ended.
 
-    Each attempt is recorded as an LLM call, and each generated dialogue is committed
-    with its call. A key stops filling at its first skipped or failed attempt: what it
-    generated before stays, and a later run tops the pool up. Before each call, the day's
-    (UTC) total cost is checked against `daily_budget_usd`. A key another job is
-    filling (its lock is held) is skipped: that job fills it, and if it fails, the next
-    run for any Event with the key tries again. An unknown Event does nothing.
+    Each attempt is recorded as an LLM call, and what it generated is committed with its
+    call. A key stops filling at its first skipped or failed attempt: what it generated
+    before stays, and a later run tops it up. Before each call, the day's (UTC) total
+    cost is checked against `daily_budget_usd`. A key another job is filling (its lock is
+    held) is skipped: that job fills it, and if it fails, the next run for any Event with
+    the key tries again. An unknown Event does nothing.
     """
-    outcomes: Counter[LlmOutcome] = Counter()
+    run = _Run(session, generator, Counter(), daily_budget_usd, now)
     event = await session.get(Event, event_id)
     if event is None:
         logger.warning("no such Event to generate content for", extra={"event_id": str(event_id)})
-        return outcomes
+        return run.outcomes
+    fills: tuple[tuple[ContentKind, _Fill], ...] = (
+        (ContentKind.LISTEN_DIALOGUE, _fill_listen_pool),
+        (ContentKind.VOCAB_ITEMS, _fill_vocab_items),
+    )
     for slug in await _current_scenarios(session, event):
-        lock = redis.lock(
-            key_lock_name(ContentKind.LISTEN_DIALOGUE, event.target_language, slug, event.level),
-            timeout=KEY_LOCK_SECONDS,
-            blocking=False,
-        )
-        if not await lock.acquire():
-            logger.info("another job is filling this key", extra={"scenario": slug})
-            continue
-        try:
-            await _fill_listen_pool(
-                session, generator, event, slug, outcomes, daily_budget_usd, now
+        for kind, fill in fills:
+            lock = redis.lock(
+                key_lock_name(kind, event.target_language, slug, event.level),
+                timeout=KEY_LOCK_SECONDS,
+                blocking=False,
             )
-        finally:
+            if not await lock.acquire():
+                logger.info(
+                    "another job is filling this key", extra={"scenario": slug, "kind": str(kind)}
+                )
+                continue
             try:
-                await lock.release()
-            except LockError:
-                logger.warning("a key's lock expired while it was filled", extra={"scenario": slug})
-    return outcomes
+                await fill(run, event, slug)
+            finally:
+                try:
+                    await lock.release()
+                except LockError:
+                    logger.warning(
+                        "a key's lock expired while it was filled",
+                        extra={"scenario": slug, "kind": str(kind)},
+                    )
+    return run.outcomes
 
 
 async def _current_scenarios(session: AsyncSession, event: Event) -> list[str]:
@@ -102,39 +121,47 @@ async def _current_scenarios(session: AsyncSession, event: Event) -> list[str]:
     return list(dict.fromkeys(rows))
 
 
-async def _fill_listen_pool(
-    session: AsyncSession,
-    generator: ContentGenerator,
-    event: Event,
-    slug: str,
-    outcomes: Counter[LlmOutcome],
-    daily_budget_usd: Decimal,
-    now: Callable[[], datetime],
-) -> None:
-    language, level = event.target_language, event.level
-    have = await session.scalar(
-        select(func.count()).where(ListenDialogue.live_generated(slug, language, level))
-    )
-    scenario = stored_scenario(slug)
-    for _ in range(LISTEN_POOL_SIZE - (have or 0)):
+@dataclass
+class _Run:
+    """One job's generator, its session, and the outcomes of its attempts so far."""
+
+    session: AsyncSession
+    generator: ContentGenerator
+    outcomes: Counter[LlmOutcome]
+    daily_budget_usd: Decimal
+    now: Callable[[], datetime]
+
+    async def attempt[T](
+        self,
+        kind: ContentKind,
+        event: Event,
+        slug: str,
+        generate: Callable[[], Awaitable[Generation[T]]],
+    ) -> tuple[LlmCall, T] | None:
+        """Make one call, unless the day's budget is spent.
+
+        A skipped or failed call is recorded and committed here, and gives None. A
+        successful one gives its call row, with what it used, and its content: the caller
+        adds what it stores and then `record`s the call, so both commit together.
+        """
         call = LlmCall(
-            content_kind=ContentKind.LISTEN_DIALOGUE,
+            content_kind=kind,
             scenario_slug=slug,
-            language=language,
-            level=level,
+            language=event.target_language,
+            level=event.level,
             input_tokens=0,
             output_tokens=0,
             cost_usd=Decimal(0),
         )
-        if await _spent_today(session, now()) >= daily_budget_usd:
-            await _record(session, call, LlmOutcome.SKIPPED_CAP, now(), outcomes)
-            return
+        if await _spent_today(self.session, self.now()) >= self.daily_budget_usd:
+            await self.record(call, LlmOutcome.SKIPPED_CAP)
+            return None
         started = time.perf_counter()
         try:
-            generation = await generator.listen_dialogue(language, scenario, level)
+            generation = await generate()
         except GenerationSkippedError:
-            await _record(session, call, LlmOutcome.SKIPPED_NO_KEY, now(), outcomes)
-            return
+            await self.record(call, LlmOutcome.SKIPPED_NO_KEY)
+            return None
         except Exception as exc:
             call.latency_ms = _elapsed_ms(started)
             if isinstance(exc, GenerationFailedError):
@@ -142,10 +169,15 @@ async def _fill_listen_pool(
             logger.warning(
                 "content generation failed; Users keep the fallback",
                 exc_info=True,
-                extra={"scenario": slug, "language": language, "level": str(level)},
+                extra={
+                    "kind": str(kind),
+                    "scenario": slug,
+                    "language": event.target_language,
+                    "level": str(event.level),
+                },
             )
-            await _record(session, call, LlmOutcome.FALLBACK_AFTER_FAILURE, now(), outcomes)
-            return
+            await self.record(call, LlmOutcome.FALLBACK_AFTER_FAILURE)
+            return None
         call.latency_ms = _elapsed_ms(started)
         _set_usage(
             call,
@@ -154,17 +186,117 @@ async def _fill_listen_pool(
             generation.output_tokens,
             generation.cost_usd,
         )
-        session.add(
+        return call, generation.content
+
+    async def record(self, call: LlmCall, outcome: LlmOutcome) -> None:
+        """Commit the call's row, with any content added alongside it."""
+        call.outcome = outcome
+        call.called_at = self.now()
+        self.session.add(call)
+        await self.session.commit()
+        self.outcomes[outcome] += 1
+
+
+type _Fill = Callable[[_Run, Event, str], Awaitable[None]]
+
+
+async def _fill_listen_pool(run: _Run, event: Event, slug: str) -> None:
+    language, level = event.target_language, event.level
+    have = await run.session.scalar(
+        select(func.count()).where(ListenDialogue.live_generated(slug, language, level))
+    )
+    scenario = stored_scenario(slug)
+    for _ in range(LISTEN_POOL_SIZE - (have or 0)):
+        attempted = await run.attempt(
+            ContentKind.LISTEN_DIALOGUE,
+            event,
+            slug,
+            lambda: run.generator.listen_dialogue(language, scenario, level),
+        )
+        if attempted is None:
+            return
+        call, content = attempted
+        run.session.add(
             ListenDialogue.from_content(
-                generation.content,
+                content,
                 scenario_slug=slug,
                 language=language,
                 level=level,
                 source=ListenSource.GENERATED,
-                created_at=now(),
+                created_at=run.now(),
             )
         )
-        await _record(session, call, LlmOutcome.GENERATED, now(), outcomes)
+        await run.record(call, LlmOutcome.GENERATED)
+
+
+async def _fill_vocab_items(run: _Run, event: Event, slug: str) -> None:
+    """Add the key's generated Vocab Items, unless a call has generated them already.
+
+    Done once per key: what that call gave is kept, even if every phrase repeated an
+    existing one and nothing was added, and a bad item is retired by hand, never
+    replaced. So running the job again never pays for another call.
+    """
+    language, level = event.target_language, event.level
+    already = await run.session.scalar(
+        select(func.count()).where(
+            LlmCall.content_kind == ContentKind.VOCAB_ITEMS,
+            LlmCall.scenario_slug == slug,
+            LlmCall.language == language,
+            LlmCall.level == level,
+            LlmCall.outcome == LlmOutcome.GENERATED,
+        )
+    )
+    if already:
+        return
+    rows = (
+        await run.session.execute(
+            select(VocabItem.phrase, VocabItem.position).where(
+                VocabItem.scenario_slug == slug, VocabItem.language == language
+            )
+        )
+    ).all()
+    existing = [phrase for phrase, _ in rows]
+    scenario = stored_scenario(slug)
+    attempted = await run.attempt(
+        ContentKind.VOCAB_ITEMS,
+        event,
+        slug,
+        lambda: run.generator.vocab_items(language, scenario, level, VOCAB_ITEM_COUNT, existing),
+    )
+    if attempted is None:
+        return
+    call, content = attempted
+    last = max([GENERATED_POSITIONS_AFTER, *(position for _, position in rows)])
+    kept = new_items(content, existing)
+    if len(kept) < len(content.items):
+        logger.info(
+            "dropped generated phrases that repeat an existing Vocab Item",
+            extra={"scenario": slug, "dropped": len(content.items) - len(kept)},
+        )
+    run.session.add_all(
+        VocabItem(
+            scenario_slug=slug,
+            language=language,
+            level=level,
+            item_key=_generated_key(level, item.phrase),
+            phrase=item.phrase,
+            translation=item.translation,
+            position=last + n,
+            source=VocabSource.GENERATED,
+        )
+        for n, item in enumerate(kept, start=1)
+    )
+    await run.record(call, LlmOutcome.GENERATED)
+
+
+def _generated_key(level: Level, phrase: str) -> str:
+    """A generated item's key: the prefix, its Level, and a hash of its phrase's key.
+
+    The Level keeps keys distinct when two Levels' jobs, which hold different locks,
+    happen to generate the same phrase at once.
+    """
+    digest = hashlib.sha256(phrase_key(phrase).encode()).hexdigest()[:16]
+    return f"{GENERATED_KEY_PREFIX}{level.lower()}_{digest}"
 
 
 async def _spent_today(session: AsyncSession, now: datetime) -> Decimal:
@@ -191,18 +323,3 @@ def _set_usage(
 
 def _elapsed_ms(started: float) -> int:
     return round((time.perf_counter() - started) * 1000)
-
-
-async def _record(
-    session: AsyncSession,
-    call: LlmCall,
-    outcome: LlmOutcome,
-    at: datetime,
-    outcomes: Counter[LlmOutcome],
-) -> None:
-    """Commit the call's row, with any content added alongside it."""
-    call.outcome = outcome
-    call.called_at = at
-    session.add(call)
-    await session.commit()
-    outcomes[outcome] += 1

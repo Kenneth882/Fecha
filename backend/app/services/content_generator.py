@@ -14,6 +14,7 @@ from typing import Protocol
 from app.services.catalog import Scenario
 from app.services.listen_content import ListenDialogueContent
 from app.services.planner import Level
+from app.services.vocab_content import VocabItemsContent
 
 
 @dataclass(frozen=True)
@@ -66,6 +67,19 @@ class ContentGenerator(Protocol):
         """One Listen Dialogue in `language` for the Scenario, suited to the Level."""
         ...
 
+    async def vocab_items(
+        self,
+        language: str,
+        scenario: Scenario,
+        level: Level,
+        count: int,
+        existing_phrases: list[str],
+    ) -> Generation[VocabItemsContent]:
+        """`count` Vocab Items in `language` for the Scenario, suited to the Level, none
+        repeating another. `existing_phrases` are the Scenario's phrases so far, which the
+        LLM is asked to avoid; the caller still drops any it repeats."""
+        ...
+
 
 class OffContentGenerator:
     """Generation is off (no API key): every call is skipped, and Users keep getting
@@ -74,4 +88,17 @@ class OffContentGenerator:
     async def listen_dialogue(
         self, language: str, scenario: Scenario, level: Level
     ) -> Generation[ListenDialogueContent]:
-        raise GenerationSkippedError("content generation is off: ANTHROPIC_API_KEY is not set")
+        raise GenerationSkippedError(_OFF)
+
+    async def vocab_items(
+        self,
+        language: str,
+        scenario: Scenario,
+        level: Level,
+        count: int,
+        existing_phrases: list[str],
+    ) -> Generation[VocabItemsContent]:
+        raise GenerationSkippedError(_OFF)
+
+
+_OFF = "content generation is off: ANTHROPIC_API_KEY is not set"

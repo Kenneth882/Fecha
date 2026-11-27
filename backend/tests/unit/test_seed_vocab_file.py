@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from app.services.catalog import SCENARIO_CATALOG
 from app.services.seed_vocab import read_seed_vocab
+from app.services.vocab_content import GENERATED_POSITIONS_AFTER
 
 MIN_ITEMS_PER_SCENARIO = 12
 
@@ -25,6 +26,13 @@ def test_the_spanish_seed_file_has_no_phrase_twice_within_a_scenario() -> None:
     for slug, items in read_seed_vocab().scenarios.items():
         phrases = [item.phrase.casefold() for item in items]
         assert len(phrases) == len(set(phrases)), slug
+
+
+def test_every_seed_item_comes_before_the_generated_positions() -> None:
+    # Seed items are numbered from 1 in file order, and generated items start after
+    # GENERATED_POSITIONS_AFTER, so a Scenario's seed list must stay shorter than that.
+    for slug, items in read_seed_vocab().scenarios.items():
+        assert len(items) <= GENERATED_POSITIONS_AFTER, slug
 
 
 def write_seed(tmp_path: Path, scenarios: dict[str, list[dict[str, str]]]) -> Path:
