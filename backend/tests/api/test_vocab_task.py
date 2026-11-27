@@ -325,7 +325,13 @@ async def test_listen_and_speak_tasks_are_a_409(
     response = await send(client, user, action, task["id"])
 
     assert response.status_code == 409
-    assert response.json()["error"]["code"] == "not_a_vocab_task"
+    # A Listen Task completes by answering its questions (test_listen_task.py).
+    expected = (
+        "completed_by_answering"
+        if (kind, action) == ("listen", "complete")
+        else ("not_a_vocab_task")
+    )
+    assert response.json()["error"]["code"] == expected
 
 
 @pytest.mark.parametrize("action", ["open", "complete"])

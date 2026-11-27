@@ -33,3 +33,24 @@ Registration rejects any password found in these files, ignoring letter case
     `móvil`, `NIE`, `empadronarse` and `catorce pagas`. Concrete details in
     model sentences (Madrid, customer service, 35.000 euros) are examples for
     the User to adapt; `…` marks a slot to fill in.
+
+## Fallback Listen Dialogues
+
+- `fallback-listen-es.json`: one hand-written Spanish Listen Dialogue for every
+  Scenario in the Scenario Catalog, suited to every Level, with three
+  Comprehension Questions each. A Listen Task uses its Scenario's fallback
+  whenever no generated dialogue is available, so it never waits for the LLM.
+  Drafted for CramPlan and reviewed by a human. `load_fallback_dialogues`
+  (`app/services/fallback_listen.py`) loads it every time the api container
+  starts, from the same `python -m app.load_seed_vocab` step as the seed
+  vocabulary.
+  - Every dialogue passes the checks in `app/services/listen_content.py`: 6–12
+    lines between exactly two named speakers, three questions with three
+    distinct options each, and each question's `supporting_line` quoted from
+    the dialogue. `correct_option` counts from 1.
+  - The dialogues are Spanish as spoken in Spain, `usted` in formal settings,
+    like the seed vocabulary. The questions and options are in English, the
+    Native Language, so they test understanding of the dialogue, not of the
+    question, at every Level.
+  - Editing a dialogue is safe: the loader retires the old row and adds a new
+    one, so Listen Tasks that already use it keep it, answers and all.

@@ -284,9 +284,53 @@ export interface paths {
         /**
          * Complete
          * @description Complete a Vocab Task, introducing its batch: each item is first due for Review
-         *     the next day. Completing it again changes nothing.
+         *     the next day. Completing it again changes nothing. A Listen Task is completed by
+         *     answering its questions instead.
          */
         post: operations["tasks-complete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{task_id}/listen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listen
+         * @description A Listen Task's Listen Dialogue and Comprehension Questions, with the answers
+         *     given so far. The first call fixes the dialogue; later calls return the same one.
+         *     A question's correct option is sent only once it's answered.
+         */
+        get: operations["tasks-listen"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tasks/{task_id}/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Answer
+         * @description Answer one of a Listen Task's Comprehension Questions, for good: the result says
+         *     whether it was right and which option was. The third answer completes the Task.
+         */
+        post: operations["tasks-answer"];
         delete?: never;
         options?: never;
         head?: never;
@@ -507,6 +551,18 @@ export interface components {
          */
         EventType: "interview" | "relocation" | "speech";
         /**
+         * GivenAnswer
+         * @description The User's answer to a Comprehension Question, now that it's final.
+         */
+        GivenAnswer: {
+            /** Choice */
+            choice: number;
+            /** Correct */
+            correct: boolean;
+            /** Correct Option */
+            correct_option: number;
+        };
+        /**
          * Grade
          * @description The User's four buttons on a Review. Only Again counts as forgotten.
          * @enum {string}
@@ -526,6 +582,86 @@ export interface components {
          * @enum {string}
          */
         Level: "A1" | "A2" | "B1" | "B2" | "C1";
+        /**
+         * ListenAnswerCreate
+         * @description An answer to one Comprehension Question: its number and the chosen option's.
+         */
+        ListenAnswerCreate: {
+            /** Question */
+            question: number;
+            /** Choice */
+            choice: number;
+        };
+        /**
+         * ListenAnswerResult
+         * @description Whether the answer was right, the correct option, and the Task's status: the
+         *     third answer completes it.
+         */
+        ListenAnswerResult: {
+            /**
+             * Task Id
+             * Format: uuid
+             */
+            task_id: string;
+            /** Question */
+            question: number;
+            /** Choice */
+            choice: number;
+            /** Correct */
+            correct: boolean;
+            /** Correct Option */
+            correct_option: number;
+            status: components["schemas"]["TaskStatus"];
+        };
+        /**
+         * ListenLine
+         * @description One line of the Listen Dialogue: who says it, and what they say.
+         */
+        ListenLine: {
+            /** Speaker */
+            speaker: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * ListenQuestion
+         * @description A Comprehension Question with its three options. `answer` is null until the User
+         *     answers it, so the correct option is never sent before then.
+         */
+        ListenQuestion: {
+            /** Number */
+            number: number;
+            /** Prompt */
+            prompt: string;
+            /** Options */
+            options: string[];
+            answer: components["schemas"]["GivenAnswer"] | null;
+        };
+        /**
+         * ListenTask
+         * @description A Listen Task's Listen Dialogue and its three Comprehension Questions.
+         *
+         *     The dialogue is fixed the first time the Task is opened or answered, so it's the
+         *     same every time. `answerable` is true only while the questions can still be
+         *     answered: on the Task's own Plan Day, while the Event is Active and the Task isn't
+         *     complete. A Missed Task, a later Plan Day's, or a Past Event's is read-only.
+         */
+        ListenTask: {
+            /**
+             * Task Id
+             * Format: uuid
+             */
+            task_id: string;
+            status: components["schemas"]["TaskStatus"];
+            /** Answerable */
+            answerable: boolean;
+            /** Speakers */
+            speakers: string[];
+            /** Lines */
+            lines: components["schemas"]["ListenLine"][];
+            /** Questions */
+            questions: components["schemas"]["ListenQuestion"][];
+        };
         /**
          * LoginRequest
          * @description What a person sends to log in.
@@ -1465,6 +1601,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TaskCompletion"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "tasks-listen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListenTask"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    "tasks-answer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ListenAnswerCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListenAnswerResult"];
                 };
             };
             /** @description Unauthorized */

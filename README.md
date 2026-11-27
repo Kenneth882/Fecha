@@ -87,7 +87,7 @@ cp .env.example .env          # the placeholders work as-is on your machine
 docker compose up             # web, api, worker, postgres, redis
 ```
 
-The api container applies migrations (`alembic upgrade head`) and loads the seed vocabulary (`python -m app.load_seed_vocab`) before it starts serving, so a fresh database needs no manual steps.
+The api container applies migrations (`alembic upgrade head`) and loads the seed vocabulary and the fallback Listen Dialogues (`python -m app.load_seed_vocab`) before it starts serving, so a fresh database needs no manual steps.
 
 - Web: http://localhost:3000 — register or log in (the demo login is below), then create an Event in onboarding and practise from Today: Vocab Tasks, Reviews and the Plan
 - API: http://localhost:8000 — interactive docs at http://localhost:8000/docs, readiness at http://localhost:8000/api/v1/health/ready
@@ -97,7 +97,7 @@ The api container applies migrations (`alembic upgrade head`) and loads the seed
   docker compose exec api python -m app.seed   # or, on the host: cd backend && uv run python -m app.seed
   ```
 
-  Then log in at http://localhost:3000/login (or through `/docs`) as `demo@example.com` / `local-demo-only-2026!` (local placeholders, set by `DEMO_EMAIL` / `DEMO_PASSWORD`). The demo starts on Day 4 of 15 with three days of history, built through the real services: Days 1–3's Vocab Tasks are done, their Reviews graded (mostly Good, a few Again), and about 20 Reviews are due today. Days 1–3's Listen and Speak Tasks show as Missed until those Task kinds land. Re-running it is safe: it recreates the demo User and replays that history so that today is always Day 4, with the Event Day 12 days away, so the demo never goes stale. It needs the seed vocabulary, which the api container loads on start (on the host, run `python -m app.load_seed_vocab` first). It doesn't run on `docker compose up` yet (Week 8).
+  Then log in at http://localhost:3000/login (or through `/docs`) as `demo@example.com` / `local-demo-only-2026!` (local placeholders, set by `DEMO_EMAIL` / `DEMO_PASSWORD`). The demo starts on Day 4 of 15 with three days of history, built through the real services: Days 1–3's Vocab Tasks are done, their Reviews graded (mostly Good, a few Again), and about 20 Reviews are due today. Days 1–3's Listen and Speak Tasks show as Missed; today's Listen Tasks can be played, on hand-written Listen Dialogues, with no Anthropic API key. Re-running it is safe: it recreates the demo User and replays that history so that today is always Day 4, with the Event Day 12 days away, so the demo never goes stale. It needs the seed vocabulary and fallback Listen Dialogues, which the api container loads on start (on the host, run `python -m app.load_seed_vocab` first). It doesn't run on `docker compose up` yet (Week 8).
 
 ### Local backend development
 
@@ -108,7 +108,7 @@ cd backend
 uv sync
 uv run pre-commit install     # ruff, ruff-format and mypy on every commit
 uv run alembic upgrade head
-uv run python -m app.load_seed_vocab         # upsert the Spanish seed Vocab Items (safe to re-run)
+uv run python -m app.load_seed_vocab         # upsert the Spanish seed Vocab Items and fallback Listen Dialogues (safe to re-run)
 uv run uvicorn --factory app.main:create_app --reload --no-access-log
 uv run arq app.workers.tasks.WorkerSettings   # in a second terminal
 uv run python -m app.seed                     # recreate the demo User on Day 4 of their Event
@@ -189,7 +189,9 @@ Login also returns a refresh token (ADR 0007). Send it to `/auth/refresh` before
 | GET | `/events/{id}/today` | What to do on the User's local today: "Day N of M" (Plan Day 1 is the Event's local creation date), days until the Event Day, state, Current Plan version and today's Tasks in order (id, Scenario title, kind, estimated minutes, `vocab_batch_size` (null except on Vocab Tasks, added in #40), status). On the Event Day or for a Past Event: 200 with no Plan Day and no Tasks; 404 for another User's Event (added in #24) |
 | POST | `/events/{id}/abandon` | Abandon the Active Event, so another can be created; it stays readable as `past`. 409 if it's already past, 404 for another User's Event (added in #22) |
 | GET | `/tasks/{id}/vocab` | A Vocab Task's batch: each Vocab Item's id, phrase and translation, in order. The first call fixes it (the Scenario's next available items for the Event's language and Level, in `position` order, up to `vocab_batch_size`); later calls return the same batch. Opening introduces nothing, and a Task that can no longer be completed (Missed, or a Past Event's) is read-only: it shows the batch fixed before, or an empty one. The batch is shorter, possibly empty, once the Scenario runs out. 409 `not_a_vocab_task` for Listen and Speak Tasks; 404 `task_not_found` for another User's Task, identical to an unknown ID (added in #42) |
-| POST | `/tasks/{id}/complete` | Complete a Vocab Task: fixes its batch if needed, sets `completed_at` and introduces the batch, each item first due for Review the next day. Returns the Task's `status` and `items_introduced`. Idempotent: completing it again changes nothing and returns the same body, even once the Event is past. 409 `task_missed` for a Missed Task, `task_in_future` for a Task of a later Plan Day, `not_a_vocab_task` for Listen and Speak Tasks, `event_already_past` for a Past Event's Task; 404 as above (added in #42) |
+| POST | `/tasks/{id}/complete` | Complete a Vocab Task: fixes its batch if needed, sets `completed_at` and introduces the batch, each item first due for Review the next day. Returns the Task's `status` and `items_introduced`. Idempotent: completing it again changes nothing and returns the same body, even once the Event is past. 409 `task_missed` for a Missed Task, `task_in_future` for a Task of a later Plan Day, `completed_by_answering` for a Listen Task (it completes by answering), `not_a_vocab_task` for a Speak Task, `event_already_past` for a Past Event's Task; 404 as above (added in #42) |
+| GET | `/tasks/{id}/listen` | A Listen Task: its `status`, whether it's `answerable` now, and its Listen Dialogue (two `speakers`, the `lines`) with three Comprehension Questions, each with a `number` (1–3), `prompt`, three `options` and the `answer` given (`choice`, `correct`, `correct_option`; null until answered, so the correct option is never sent first). The first call fixes the dialogue: for now always the Scenario's hand-written fallback. Later calls return the same one. A Task that can no longer be completed is read-only and fixes nothing. 409 `not_a_listen_task` for Vocab and Speak Tasks; 404 as above (added in #67) |
+| POST | `/tasks/{id}/answers` | Answer a Comprehension Question for good: body `{question, choice}`, both 1–3. Returns whether it was `correct`, the `correct_option` and the Task's `status`: the third answer, right or wrong, completes the Task in the same transaction. 409 `question_already_answered`, `task_missed`, `task_in_future`, `event_already_past`, `not_a_listen_task`; 422 for a question or choice out of range; 404 as above (added in #67) |
 | POST | `/events/{id}/replan` | Re-plan after Missed Tasks (planned) |
 | GET | `/events/{id}/reviews/due` | The Review Queue: Introduced Vocab Items due on the User's local today or earlier, oldest first, each with its vocab item id, phrase, translation, Scenario title and `due_on`, plus a `count`. Overdue items stay until graded (Reviews are never Missed). Empty on the Event Day and for a Past Event; 404 `event_not_found` for another User's Event, identical to an unknown ID (added in #43) |
 | POST | `/events/{id}/reviews` | Grade a due Review: body `{vocab_item_id, grade}`, `grade` one of `again`, `hard`, `good`, `easy` (Grades 1, 3, 4, 5). Locks the item's Review State, applies `srs.py`, appends one row to the `reviews` log (never updated or deleted) and returns the new `due_on` (null once nothing more is due before the Event Day). 409 `review_not_due` if the item isn't in today's queue (so a second Grade the same day is refused), `event_day_reached` on the Event Day, `event_already_past` for a Past Event; 404 `vocab_item_not_introduced` for an item not Introduced for this Event, and as above for the Event (added in #43) |
@@ -242,9 +244,11 @@ The API logs JSON lines to stdout. Each request writes one access line (`method`
 | Event | id, user_id, type, target_language, event_day, level, daily_budget, goals, abandoned_at, created_at | type = interview, relocation, speech; level = A1–C1; daily_budget = 15, 30, 45 minutes. No status column: active / event day / past is derived from `abandoned_at`, `event_day` and the User's local today (ADR 0005) |
 | Plan | id, event_id, version, generated_at | (event_id, version) unique; the Current Plan is the highest version, and re-planning adds a version |
 | Milestone | id, plan_id, scenario_slug, position, target_date | A Scenario from the in-code Scenario Catalog, by slug (no foreign key; a test checks stored slugs); title comes from the catalog |
-| Task | id, milestone_id, date, kind, position, estimated_minutes, vocab_batch_size, vocab_batch_fixed_at, completed_at | kind = vocab, listen, speak; `date` is the Plan Day; `vocab_batch_size` is how many Vocab Items a Vocab Task teaches, set by the planner (required for vocab, null otherwise, by a check constraint); `payload` arrives with content (Weeks 3–4) |
+| Task | id, milestone_id, date, kind, position, estimated_minutes, vocab_batch_size, vocab_batch_fixed_at, listen_dialogue_id, listen_dialogue_fixed_at, completed_at | kind = vocab, listen, speak; `date` is the Plan Day; `vocab_batch_size` is how many Vocab Items a Vocab Task teaches, set by the planner (required for vocab, null otherwise, by a check constraint); `listen_dialogue_id` is a Listen Task's Listen Dialogue, fixed on first open or answer and never changed (listen only, by a check constraint) |
 | VocabItem | id, scenario_slug, language, level, item_key, phrase, translation, position, source, retired_at | Shared across Users. (scenario_slug, language, item_key) unique; `position` orders a Scenario's items, easiest and most essential first; level null = suits every Level; source = seed, generated. Seed items come from `app/data/seed-vocab-es.json`, upserted by `load_seed_vocab`; items that leave the file are retired, never deleted |
 | VocabTaskItem | task_id, position, vocab_item_id | A Vocab Task's batch, written once when it's fixed (on first open or completion; `tasks.vocab_batch_fixed_at` records when, so an empty batch stays fixed too). (task_id, vocab_item_id) unique. Two of an Event's Tasks that can still be completed never share an item; a Missed Task's items go back into the pool |
+| ListenDialogue | id, scenario_slug, language, level, source, speakers, lines, questions, created_at, retired_at | Shared across Users. source = fallback (level null: suits every Level) or generated (level set), by a check constraint; `speakers`, `lines` and `questions` are JSONB holding a validated `ListenDialogueContent`. Never edited in place: a changed or bad one is retired, and Listen Tasks keep theirs. At most one live fallback per (scenario_slug, language); fallbacks come from `app/data/fallback-listen-es.json` (added in #67) |
+| ListenAnswer | task_id, question, choice, is_correct, answered_at | A User's final answer to one Comprehension Question of a Listen Task; (task_id, question) is the key, so a question takes one answer. question and choice are 1–3 (added in #67) |
 | RefreshToken | id, user_id, token_hash, family_id, created_at, last_used_at, expires_at, revoked_at, replaced_by_id | token_hash (unique) is the SHA-256 of a random 32-byte token; the token itself is never stored. A family is one session: every refresh adds its next token and revokes the last, linked by replaced_by_id. expires_at is 30 days after the token was issued, never past 90 days after the family's first login. Revoked rows are kept, to detect reuse (ADR 0007) |
 | ReviewState | event_id, vocab_item_id, introduced_on, ease, interval_days, repetitions, lapses, due_on, reviewed_in_final_window | One row per Introduced Vocab Item per Event, (event_id, vocab_item_id) the key: nothing carries over between Events (ADR 0001). Created when a Vocab Task is completed and updated by `srs.py`; `due_on` is null once nothing more is scheduled before the Event Day |
 | Review | id, event_id, vocab_item_id, plan_day, grade, reviewed_at | Append-only log: rows are never updated or deleted. `plan_day` is the User's local date; grade 0–5. (event_id, vocab_item_id) refers to its Review State. Written from #43 |
@@ -314,13 +318,16 @@ backend/
 │   ├── core/              # config (pydantic-settings), deps (incl. the clock), JSON logging, middleware
 │   ├── db/                # async engine + sessionmaker, Redis client
 │   ├── models/            # SQLAlchemy tables
-│   ├── data/              # bundled data: common passwords, seed-vocab-es.json
+│   ├── data/              # bundled data: common passwords, seed-vocab-es.json, fallback-listen-es.json
 │   ├── schemas/           # Pydantic request/response models
 │   ├── api/v1/            # health, auth, events, tasks; reviews, roleplay (planned)
 │   ├── services/
 │   │   ├── health.py      # readiness checks
 │   │   ├── catalog.py     # the Scenario Catalog: fixed Scenarios per Event Type, pure
+│   │   ├── fallback_listen.py  # reads the fallback Listen Dialogues file and loads it
 │   │   ├── events.py      # create/read Events and their Plans; one Active Event per User
+│   │   ├── listen_content.py  # what a Listen Dialogue holds and the checks it passes, pure
+│   │   ├── listen_tasks.py    # open a Listen Task (fix its dialogue) and answer its questions
 │   │   ├── local_time.py  # UTC moment + IANA timezone → the User's local today, pure
 │   │   ├── planner.py     # backward planning algorithm, pure Python
 │   │   ├── seed_vocab.py  # reads the seed vocabulary file and upserts it into vocab_items
@@ -335,7 +342,7 @@ backend/
 ├── tests/
 │   ├── unit/              # pure logic: local time, srs, planner, scoring (no DB)
 │   ├── api/               # endpoint tests with dependency overrides
-│   ├── db/                # transactional test session, seed vocabulary loader
+│   ├── db/                # transactional test session, seed vocabulary and fallback loaders
 │   └── workers/           # arq worker round-trip against test Redis
 └── pyproject.toml
 web/                       # Next.js (App Router) + TypeScript + Tailwind PWA, http://localhost:3000

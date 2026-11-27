@@ -25,8 +25,8 @@ docker compose up -d postgres redis            # from the repo root: just the se
 uv sync                                        # install deps
 uv run uvicorn --factory app.main:create_app --reload --no-access-log  # API on :8000, docs at /docs; the app writes its own JSON access log
 uv run arq app.workers.tasks.WorkerSettings    # background worker
-uv run python -m app.seed                      # recreate the demo User on Day 4 of their Event (needs the seed vocab; safe to re-run)
-uv run python -m app.load_seed_vocab          # upsert the seed Vocab Items from app/data (safe to re-run; the api container runs it on start)
+uv run python -m app.seed                      # recreate the demo User on Day 4 of their Event (needs the seed content; safe to re-run)
+uv run python -m app.load_seed_vocab          # upsert the seed Vocab Items and fallback Listen Dialogues from app/data (safe to re-run; the api container runs it on start)
 uv run alembic revision --autogenerate -m "…"  # new migration
 uv run alembic upgrade head                    # apply migrations
 uv run pytest                                  # all tests
@@ -64,11 +64,12 @@ Always use `uv run` / `uv add` — never `pip install`. In `web/`, pin exact ver
 ## LLM and voice
 
 - Every LLM call returns a Pydantic-validated object via instructor. No free-text parsing.
-- Every LLM generation path needs: retries, a fallback to hand-written templates, and Redis caching keyed by (language, event type, level).
+- Every LLM generation path needs: retries, a fallback to hand-written templates, and caching keyed by (language, Scenario, Level): generated content is stored once in Postgres under that key and shared by every User with it, and Redis only stops two jobs from generating the same key at once (ADR 0008). The Event's free-text goals don't personalise it.
 - Track tokens and cost per call; track voice minutes and per-turn latency per session (`RoleplaySession.cost_usd`, `duration_sec`).
 - Voice loop target: **< 1.5 s per turn** (STT → LLM → TTS, streamed). Don't add blocking work to the WebSocket loop.
 - Enforce session length caps and per-user rate limits (middleware).
 - Default to current Claude models if using Anthropic (e.g. `claude-sonnet-5-5`; `claude-opus-5-5` for harder generation).
+- LLM generation sits behind one content-level interface (one method per content kind, returning Pydantic models). Tests swap in a fake of that interface, never a fake HTTP client.
 
 ## Core algorithms (get these right)
 

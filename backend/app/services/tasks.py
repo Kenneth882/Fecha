@@ -1,4 +1,6 @@
-"""Opening and completing a User's Tasks. Only Vocab Tasks can be done so far.
+"""Opening and completing a User's Vocab Tasks, and the rules every Task kind shares.
+
+Listen Tasks are opened and answered in `listen_tasks`; Speak Tasks can't be done yet.
 
 A Vocab Task's batch is fixed the first time it's opened or completed, and stored in
 `vocab_task_items`. Completing the Task introduces the batch: one Review State per item,
@@ -39,6 +41,12 @@ class NotAVocabTaskError(AppError):
     message = "Only Vocab Tasks can be opened or completed for now"
 
 
+class CompletedByAnsweringError(AppError):
+    status_code = status.HTTP_409_CONFLICT
+    code = "completed_by_answering"
+    message = "A Listen Task is completed by answering its three Comprehension Questions"
+
+
 class TaskMissedError(AppError):
     status_code = status.HTTP_409_CONFLICT
     code = "task_missed"
@@ -63,9 +71,9 @@ async def open_vocab_task(
     """
     task, event, scenario_slug = await _own_vocab_task(session, user, task_id)
     if task.vocab_batch_fixed_at is None:
-        await _lock_event(session, event, task)
+        await lock_event(session, event, task)
         today = local_today(now, user.timezone)
-        if task.vocab_batch_fixed_at is None and _can_complete(task, event, today):
+        if task.vocab_batch_fixed_at is None and can_complete(task, event, today):
             await _fix_batch(session, task, event, scenario_slug, today, now)
             await session.commit()
     items = await _fixed_batch_items(session, task)
@@ -86,10 +94,15 @@ async def complete_task(
     TaskNotFoundError and NotAVocabTaskError as `open_vocab_task` does,
     EventAlreadyPastError for a Past Event's Task, TaskMissedError for a Missed
     Task, and TaskInFutureError for a Task of a later Plan Day, whose items would
-    otherwise be introduced ahead of the Plan.
+    otherwise be introduced ahead of the Plan. A Listen Task raises
+    CompletedByAnsweringError instead: answering its last question completes it.
     """
-    task, event, scenario_slug = await _own_vocab_task(session, user, task_id)
-    await _lock_event(session, event, task)
+    task, event, scenario_slug = await own_task(session, user, task_id)
+    if task.kind is TaskKind.LISTEN:
+        raise CompletedByAnsweringError
+    if task.kind is not TaskKind.VOCAB:
+        raise NotAVocabTaskError
+    await lock_event(session, event, task)
     if task.completed_at is not None:
         # A batch's items are introduced only by its own Task (see `_fix_batch`).
         items = await _fixed_batch_items(session, task)
@@ -97,12 +110,7 @@ async def complete_task(
             task_id=task.id, status=TaskStatus.COMPLETED, items_introduced=len(items)
         )
     today = local_today(now, user.timezone)
-    if event_state(event, today) is EventState.PAST:
-        raise EventAlreadyPastError
-    if task_status(task.date, task.completed_at, today=today) is TaskStatus.MISSED:
-        raise TaskMissedError
-    if task.date > today:
-        raise TaskInFutureError
+    check_completable(task, event, today)
     if task.vocab_batch_fixed_at is None:
         await _fix_batch(session, task, event, scenario_slug, today, now)
         await session.flush()
@@ -120,19 +128,44 @@ async def complete_task(
     return TaskCompletion(task_id=task.id, status=TaskStatus.COMPLETED, items_introduced=len(items))
 
 
-def _can_complete(task: Task, event: Event, today: date) -> bool:
-    """Whether `task` could still be completed on `today`: not Missed, and its Event
-    not past."""
+def can_complete(task: Task, event: Event, today: date) -> bool:
+    """Whether `task` could still be completed on `today` or a later day: not Missed,
+    and its Event not past."""
     return (
         event_state(event, today) is not EventState.PAST
         and task_status(task.date, task.completed_at, today=today) is not TaskStatus.MISSED
     )
 
 
+def check_completable(task: Task, event: Event, today: date) -> None:
+    """Raise unless an incomplete `task` can be completed on `today`: its Event isn't
+    past (EventAlreadyPastError), and today is its Plan Day (TaskMissedError after it,
+    TaskInFutureError before it)."""
+    if event_state(event, today) is EventState.PAST:
+        raise EventAlreadyPastError
+    if task_status(task.date, task.completed_at, today=today) is TaskStatus.MISSED:
+        raise TaskMissedError
+    if task.date > today:
+        raise TaskInFutureError
+
+
 async def _own_vocab_task(
     session: AsyncSession, user: User, task_id: uuid.UUID
 ) -> tuple[Task, Event, str]:
     """One of the User's Vocab Tasks, its Event and its Milestone's Scenario slug."""
+    task, event, scenario_slug = await own_task(session, user, task_id)
+    if task.kind is not TaskKind.VOCAB:
+        raise NotAVocabTaskError
+    return task, event, scenario_slug
+
+
+async def own_task(
+    session: AsyncSession, user: User, task_id: uuid.UUID
+) -> tuple[Task, Event, str]:
+    """One of the User's Tasks, of any kind, its Event and its Milestone's Scenario slug.
+
+    Raises TaskNotFoundError if there's no such Task or it's another User's.
+    """
     row = (
         await session.execute(
             select(Task, Event, Milestone.scenario_slug)
@@ -145,17 +178,16 @@ async def _own_vocab_task(
     if row is None:
         raise TaskNotFoundError
     task, event, scenario_slug = row
-    if task.kind is not TaskKind.VOCAB:
-        raise NotAVocabTaskError
     return task, event, scenario_slug
 
 
-async def _lock_event(session: AsyncSession, event: Event, task: Task) -> None:
+async def lock_event(session: AsyncSession, event: Event, task: Task) -> None:
     """Lock the Event's row until the commit, then reload `task`.
 
-    Every batch fix and completion for an Event takes this lock first, so two requests
-    can't fix the same items into two batches, fix one batch twice, or complete a Task
-    twice. `task` is reloaded because another request may have changed it meanwhile.
+    Every batch or Listen Dialogue fix, answer and completion for an Event takes this
+    lock first, so two requests can't fix the same items into two batches, fix one
+    batch or dialogue twice, answer one question twice, or complete a Task twice.
+    `task` is reloaded because another request may have changed it meanwhile.
     """
     await session.execute(
         select(Event)

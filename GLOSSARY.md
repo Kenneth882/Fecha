@@ -95,7 +95,15 @@ _Avoid_: Exercise, activity, lesson
 A Task that introduces a batch of new Vocab Items from its Milestone's Scenario. The batch is bigger when the Task has more time, and it stays the same each time the Task is opened. It's drawn from the Scenario's Vocab Items that suit the Event's Level, skipping items already introduced for the Event and items in another of its Vocab Tasks' batches, unless that Task was Missed, so two Vocab Tasks never teach the same item. It can be completed only on its own Plan Day.
 
 **Listen Task**:
-A Task in which the User hears a short dialogue set in its Milestone's Scenario and answers three comprehension questions. It's complete once all three are answered.
+A Task in which the User takes in a Listen Dialogue set in its Milestone's Scenario, read as text until audio arrives, and answers its three Comprehension Questions. Each question takes one answer, which can't be changed, and the Task is complete once all three are answered, whether right or wrong. It can be completed only on its own Plan Day. Its Listen Dialogue is chosen when it's first opened and stays the same afterwards, and it's one the Event hasn't used yet whenever possible.
+
+**Listen Dialogue**:
+A short conversation between two named speakers in one Scenario, in one target language and suited to one Level, with three Comprehension Questions. Shared across Users. Each Scenario also has a hand-written one that suits every Level, so a Listen Task never has to wait for one.
+_Avoid_: Script, conversation, transcript
+
+**Comprehension Question**:
+A multiple-choice question about a Listen Dialogue, with three options and one correct answer. The User's answer is kept, and the correct one is shown once they've answered.
+_Avoid_: Quiz, check
 
 **Speak Task**:
 A Task that the User completes by doing a Roleplay Session for its Milestone.

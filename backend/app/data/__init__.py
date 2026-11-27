@@ -8,6 +8,9 @@ DATA_DIR = Path(__file__).resolve().parent
 # The Spanish seed Vocab Items, with English translations (see README.md).
 SEED_VOCAB_ES = DATA_DIR / "seed-vocab-es.json"
 
+# The hand-written Spanish fallback Listen Dialogues, one per Scenario (see README.md).
+FALLBACK_LISTEN_ES = DATA_DIR / "fallback-listen-es.json"
+
 COMMON_PASSWORD_FILES = (
     DATA_DIR / "common-passwords.txt",
     DATA_DIR / "common-password-patterns.txt",
