@@ -1,7 +1,8 @@
 import Link from "next/link";
 
 import type { components } from "@/lib/api/schema";
-import { TASK_KINDS, TASK_STATUSES, isTaskLocked } from "@/lib/events/labels";
+import { TASK_KINDS, TASK_STATUSES } from "@/lib/events/labels";
+import { taskHref } from "@/lib/tasks/task-links";
 
 type Task = Pick<
   components["schemas"]["TodayTask"],
@@ -9,11 +10,11 @@ type Task = Pick<
 >;
 
 /**
- * One Task, on Today or in the Plan. A Vocab Task links to its screen when `linked`;
- * Listen and Speak Tasks are locked ("Coming soon"): shown, but not links or buttons.
+ * One Task, on Today or in the Plan. Vocab and Listen Tasks link to their screens;
+ * Speak Tasks are locked ("Coming soon"): shown, but not links or buttons.
  */
-export function TaskRow({ task, heading, linked = true }: { task: Task; heading?: string; linked?: boolean }) {
-  const locked = isTaskLocked(task.kind);
+export function TaskRow({ task, heading }: { task: Task; heading?: string }) {
+  const href = taskHref(task);
   const details = [
     TASK_KINDS[task.kind],
     task.vocab_batch_size ? `${task.vocab_batch_size} phrases` : null,
@@ -28,12 +29,12 @@ export function TaskRow({ task, heading, linked = true }: { task: Task; heading?
         {heading && <span className="truncate font-medium">{heading}</span>}
         <span className={heading ? "text-sm opacity-75" : "text-sm"}>{details}</span>
       </span>
-      <StatusBadge status={task.status} locked={locked} />
+      <StatusBadge status={task.status} locked={href === null} />
     </>
   );
   const className = "flex items-center justify-between gap-3 rounded-lg border px-4 py-3";
 
-  if (locked) {
+  if (href === null) {
     return (
       <div
         aria-disabled="true"
@@ -44,10 +45,9 @@ export function TaskRow({ task, heading, linked = true }: { task: Task; heading?
       </div>
     );
   }
-  if (!linked) return <div className={`${className} border-current/15`}>{body}</div>;
   return (
     <Link
-      href={`/tasks/${task.id}`}
+      href={href}
       data-testid="task-link"
       className={`${className} border-current/15 hover:border-blue-600 focus-visible:border-blue-600`}
     >

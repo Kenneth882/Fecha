@@ -48,7 +48,7 @@ export default async function PlanPage() {
                     <ul className="flex flex-col gap-1.5">
                       {day.tasks.map((task) => (
                         <li key={task.id}>
-                          <TaskRow task={task} linked={false} />
+                          <TaskRow task={task} />
                         </li>
                       ))}
                     </ul>
