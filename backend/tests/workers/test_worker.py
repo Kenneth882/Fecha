@@ -19,11 +19,14 @@ from app.models.llm_call import LlmCall, LlmOutcome
 from app.schemas.event import EventCreate
 from app.schemas.user import UserCreate
 from app.services.catalog import EventType
+from app.services.claude_content_generator import ClaudeContentGenerator
+from app.services.content_generator import OffContentGenerator
 from app.services.events import create_event
+from app.services.llm_prices import UnknownModelError
 from app.services.planner import Level
 from app.services.users import delete_user_by_email, register_user
 from app.workers.queue import ArqJobQueue
-from app.workers.tasks import worker_settings
+from app.workers.tasks import anthropic_client, content_generator, worker_settings
 from tests.auth import GOOD_PASSWORD
 
 
@@ -87,12 +90,41 @@ def test_without_an_api_key_the_worker_logs_once_that_generation_is_off(
     configure_logging("INFO")
     capsys.readouterr()
 
-    worker_settings(settings)
+    generator = content_generator(settings, anthropic_client(settings))
 
+    assert isinstance(generator, OffContentGenerator)
     messages = [line["message"] for line in log_lines(capsys)]
     assert len(messages) == 1
     assert "content generation is off" in messages[0]
     assert "ANTHROPIC_API_KEY" in messages[0]
+
+
+def with_api_key(settings: Settings, **overrides: Any) -> Settings:
+    return Settings.model_validate(
+        {**settings.model_dump(), "anthropic_api_key": "sk-ant-test-not-real", **overrides}
+    )
+
+
+async def test_with_an_api_key_the_worker_generates_with_claude(settings: Settings) -> None:
+    # Building the client and generator makes no API call.
+    keyed = with_api_key(settings)
+    client = anthropic_client(keyed)
+    assert client is not None
+    try:
+        assert isinstance(content_generator(keyed, client), ClaudeContentGenerator)
+    finally:
+        await client.close()
+
+
+async def test_a_model_with_no_price_stops_the_worker_at_startup(settings: Settings) -> None:
+    keyed = with_api_key(settings, llm_model="claude-imaginary-9")
+    client = anthropic_client(keyed)
+    assert client is not None
+    try:
+        with pytest.raises(UnknownModelError):
+            content_generator(keyed, client)
+    finally:
+        await client.close()
 
 
 def test_a_blank_api_key_counts_as_none(settings: Settings) -> None:

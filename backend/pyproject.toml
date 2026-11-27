@@ -5,10 +5,12 @@ description = "CramPlan API and background worker"
 requires-python = ">=3.12"
 dependencies = [
     "alembic>=1.20.1",
+    "anthropic>=2.14.0",
     "arq>=0.25.0",
     "asyncpg>=0.32.0",
     "email-validator>=2.3.0",
     "fastapi>=0.162.2",
+    "instructor>=1.18.0",
     "passlib[argon2]>=1.7.4",
     "pydantic-settings>=2.16.2",
     "pyjwt>=2.15.1",

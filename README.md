@@ -114,6 +114,8 @@ uv run arq app.workers.tasks.WorkerSettings   # in a second terminal
 uv run python -m app.seed                     # recreate the demo User on Day 4 of their Event
 ```
 
+**Turning on content generation.** Everything works without an Anthropic API key: the worker logs once that generation is off, and every Listen Task uses its Scenario's hand-written fallback dialogue. To generate Listen Dialogues with Claude, set `ANTHROPIC_API_KEY` in `.env` and restart the worker. Creating an Event then queues a job that fills, for each of its Scenarios, a pool of three Listen Dialogues at the Event's language and Level, shared by every User with the same key. `LLM_MODEL` picks the model (`claude-sonnet-5-5` by default; it must have a price in `app/services/llm_prices.py`, or the worker won't start). `LLM_DAILY_BUDGET_USD` (default 2) is the daily spending cap: before each call the worker adds up what the day's (UTC) calls have cost, and once that reaches the cap it makes no more calls until midnight UTC. Those attempts are recorded as skipped and Users keep the fallbacks. Every attempt is recorded in `llm_calls` with its outcome: a generated or failed call with its model, tokens, cost and latency, and a skipped one (no key, or the cap reached) with none.
+
 ### Local web development
 
 Node is pinned in `web/.nvmrc`; the package manager is npm, with exact versions in `package-lock.json`.
@@ -327,9 +329,12 @@ backend/
 │   │   ├── catalog.py     # the Scenario Catalog: fixed Scenarios per Event Type, pure
 │   │   ├── content_generator.py  # the content generator seam (one method per content kind), pure
 │   │   ├── content_generation.py # fill an Event's shared content pools, in the worker (ADR 0008)
+│   │   ├── claude_content_generator.py # the real content generator: Claude via instructor
 │   │   ├── fallback_listen.py  # reads the fallback Listen Dialogues file and loads it
 │   │   ├── events.py      # create/read Events and their Plans; one Active Event per User
 │   │   ├── listen_content.py  # what a Listen Dialogue holds and the checks it passes, pure
+│   │   ├── listen_prompts.py  # the Listen Dialogue prompt and a brief per Level, pure
+│   │   ├── llm_prices.py  # per-model token prices and a call's cost in USD, pure
 │   │   ├── listen_tasks.py    # open a Listen Task (fix its dialogue) and answer its questions
 │   │   ├── local_time.py  # UTC moment + IANA timezone → the User's local today, pure
 │   │   ├── planner.py     # backward planning algorithm, pure Python

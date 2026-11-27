@@ -8,12 +8,14 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from anthropic import AsyncAnthropic
 from arq import func
 from arq.connections import RedisSettings
 
 from app.core.config import Settings, load_settings
 from app.core.logging import configure_logging
 from app.db.session import create_engine, create_session_factory
+from app.services.claude_content_generator import ClaudeContentGenerator
 from app.services.content_generation import fill_event_content
 from app.services.content_generator import ContentGenerator, OffContentGenerator
 
@@ -48,26 +50,41 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-def content_generator(settings: Settings) -> ContentGenerator:
-    """The content generator for these settings. Logs when generation is off."""
+def anthropic_client(settings: Settings) -> AsyncAnthropic | None:
+    """The Anthropic client for these settings, or None when there's no API key."""
     if settings.anthropic_api_key is None:
+        return None
+    return AsyncAnthropic(api_key=settings.anthropic_api_key.get_secret_value())
+
+
+def content_generator(settings: Settings, client: AsyncAnthropic | None) -> ContentGenerator:
+    """The content generator for these settings: Claude when there's a client (an API
+    key is set), else "off". Logs when generation is off."""
+    if client is None:
         logger.warning(
             "content generation is off: ANTHROPIC_API_KEY is not set, so Listen Tasks "
             "use the hand-written fallbacks"
         )
-    else:
-        logger.warning("content generation is off: real generation arrives with #70")
-    return OffContentGenerator()
+        return OffContentGenerator()
+    logger.info("content generation is on", extra={"model": settings.llm_model})
+    return ClaudeContentGenerator(client, settings.llm_model)
 
 
 async def startup(ctx: dict[str, Any]) -> None:
-    """Open the DB engine the jobs use."""
-    engine = create_engine(ctx["settings"])
+    """Open the DB engine and, with an API key, the Anthropic client the jobs use."""
+    settings: Settings = ctx["settings"]
+    engine = create_engine(settings)
     ctx["engine"] = engine
     ctx["session_factory"] = create_session_factory(engine)
+    client = anthropic_client(settings)
+    ctx["anthropic_client"] = client
+    ctx["generator"] = content_generator(settings, client)
 
 
 async def shutdown(ctx: dict[str, Any]) -> None:
+    client: AsyncAnthropic | None = ctx.get("anthropic_client")
+    if client is not None:
+        await client.close()
     await ctx["engine"].dispose()
 
 
@@ -78,7 +95,7 @@ def worker_settings(settings: Settings) -> dict[str, Any]:
         # and a Re-plan can queue the job again.
         "functions": [noop, func(generate_event_content, keep_result=0)],
         "redis_settings": RedisSettings.from_dsn(settings.redis_url.get_secret_value()),
-        "ctx": {"settings": settings, "generator": content_generator(settings)},
+        "ctx": {"settings": settings},
         "on_startup": startup,
         "on_shutdown": shutdown,
     }

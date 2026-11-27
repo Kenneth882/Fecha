@@ -20,6 +20,12 @@ ALLOWED = {
         "app.services.planner",
     },
     "listen_content.py": {"pydantic"},
+    "listen_prompts.py": {
+        "app.services.catalog",
+        "app.services.listen_content",
+        "app.services.planner",
+    },
+    "llm_prices.py": set(),
     "planner.py": {"pydantic", "app.services.catalog"},
     "srs.py": {"pydantic", "app.services.planner"},
     "task_status.py": set(),
