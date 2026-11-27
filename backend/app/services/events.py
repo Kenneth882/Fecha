@@ -4,6 +4,7 @@
 into the User's local today here. Event states are derived, never stored (ADR 0005).
 """
 
+import logging
 import uuid
 from datetime import date, datetime
 from itertools import groupby
@@ -34,6 +35,9 @@ from app.services.catalog import stored_scenario
 from app.services.local_time import local_today
 from app.services.planner import MIN_PLAN_DAYS, DailyBudget, DraftPlan, build_plan
 from app.services.task_status import task_status
+from app.workers.queue import JobQueue
+
+logger = logging.getLogger(__name__)
 
 # A cram planner, not a general course.
 MAX_DAYS_AHEAD = 60
@@ -67,10 +71,18 @@ class EventNotFoundError(AppError):
 
 
 async def create_event(
-    session: AsyncSession, user: User, data: EventCreate, now: datetime
+    session: AsyncSession,
+    user: User,
+    data: EventCreate,
+    now: datetime,
+    job_queue: JobQueue | None,
 ) -> EventDetail:
     """Create and commit an Event with its first Plan, built by the planner from the
-    User's local today (ADR 0004).
+    User's local today, then queue its content job (ADR 0004), unless `job_queue` is
+    None (the demo seed, whose Event uses the hand-written fallbacks).
+
+    If queuing fails the Event still exists, and its Listen Tasks use the hand-written
+    fallbacks; the failure is logged.
 
     Raises EventDayOutOfRangeError unless the Event Day is 3 to 60 of the User's local
     days after their local today, and ActiveEventExistsError if the User already
@@ -103,6 +115,13 @@ async def create_event(
     plan = _plan_rows(event, draft, version=1, generated_at=now)
     session.add_all([event, plan])
     await session.commit()
+    if job_queue is not None:
+        try:
+            await job_queue.enqueue_event_content(event.id)
+        except Exception:
+            logger.exception(
+                "couldn't queue the Event's content job", extra={"event_id": str(event.id)}
+            )
     return _detail(event, plan.version, today)
 
 

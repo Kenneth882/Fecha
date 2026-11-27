@@ -1,6 +1,7 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+from arq.connections import ArqRedis
 from fastapi import FastAPI
 from fastapi.routing import APIRoute
 
@@ -12,11 +13,13 @@ from app.core.middleware import RequestContextMiddleware
 from app.data import common_passwords
 from app.db.redis import create_redis
 from app.db.session import create_engine, create_session_factory
+from app.workers.queue import ArqJobQueue
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Open the DB engine and Redis pool on startup; close them on shutdown.
+    """Open the DB engine and Redis pool on startup; close them on shutdown. The job
+    queue shares the Redis pool.
 
     HTTP clients join here when they're added.
     """
@@ -27,6 +30,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     redis = create_redis(settings)
     app.state.session_factory = create_session_factory(engine)
     app.state.redis = redis
+    app.state.job_queue = ArqJobQueue(ArqRedis(redis.connection_pool))
     try:
         yield
     finally:

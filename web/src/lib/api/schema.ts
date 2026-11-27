@@ -163,6 +163,8 @@ export interface paths {
         /**
          * Create
          * @description Create the User's Event and its first Plan, and return the Event's detail.
+         *
+         *     Its content (generated Listen Dialogues) is filled in the background afterwards.
          */
         post: operations["events-create"];
         delete?: never;

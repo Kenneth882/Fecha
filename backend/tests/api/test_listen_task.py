@@ -2,7 +2,7 @@
 answering its third Comprehension Question completes it."""
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.listen import ListenDialogue, ListenSource
 from app.services.listen_content import ListenDialogueContent
+from app.services.planner import Level
 from tests.auth import RegisteredUser, register_and_log_in
 from tests.conftest import FIXED_NOW, Clock
 from tests.events import create_event
@@ -363,3 +364,103 @@ async def test_another_users_task_is_a_404_identical_to_an_unknown_id(
     assert for_theirs.status_code == for_unknown.status_code == 404
     assert without_request_id(for_theirs.json()) == without_request_id(for_unknown.json())
     assert for_theirs.json()["error"]["code"] == "task_not_found"
+
+
+def tagged_lines(tag: str) -> list[dict[str, str]]:
+    """`dialogue()`'s lines, each ending in `tag`, to tell dialogues apart."""
+    return [{**line, "text": f"{line['text']} ({tag})"} for line in dialogue()["lines"]]
+
+
+async def add_generated(
+    session: AsyncSession,
+    tag: str,
+    *,
+    level: Level = Level.B1,
+    created_at: datetime = FIXED_NOW,
+    retired: bool = False,
+) -> ListenDialogue:
+    """A generated Listen Dialogue for INTRODUCING_YOURSELF, its lines tagged `tag`."""
+    row = ListenDialogue.from_content(
+        ListenDialogueContent.model_validate(dialogue(lines=tagged_lines(tag))),
+        scenario_slug=INTRODUCING_YOURSELF,
+        language="es",
+        level=level,
+        source=ListenSource.GENERATED,
+        created_at=created_at,
+        retired_at=created_at if retired else None,
+    )
+    session.add(row)
+    await session.commit()
+    return row
+
+
+async def introducing_yourself_listen_tasks(
+    client: AsyncClient, user: RegisteredUser
+) -> list[dict[str, Any]]:
+    """Create the default Event and return its Listen Tasks for INTRODUCING_YOURSELF, in
+    date order: Plan Days 1 and 1 (2026-11-10), 3 (11-12), 11 (11-20) and 12 (11-21)."""
+    event = (await create_event(client, user)).json()
+    plan = (await client.get(f"/api/v1/events/{event['id']}/plan", headers=user.headers)).json()
+    [milestone] = [m for m in plan["milestones"] if m["scenario_slug"] == INTRODUCING_YOURSELF]
+    return [task for day in milestone["days"] for task in day["tasks"] if task["kind"] == "listen"]
+
+
+def at(day: int) -> datetime:
+    """Noon UTC on 2026-11-`day`: 13:00 in Madrid."""
+    return datetime(2026, 11, day, 12, 0, tzinfo=UTC)
+
+
+async def lines_of(client: AsyncClient, user: RegisteredUser, task: dict[str, Any]) -> Any:
+    return (await open_listen(client, user, task["id"]))["lines"]
+
+
+async def test_a_task_gets_a_generated_dialogue_the_event_hasnt_used_oldest_first(
+    client: AsyncClient, user: RegisteredUser, clock: Clock, db_session: AsyncSession
+) -> None:
+    await add_fallback(db_session)
+    await add_generated(db_session, "newer", created_at=FIXED_NOW - timedelta(hours=1))
+    await add_generated(db_session, "older", created_at=FIXED_NOW - timedelta(hours=2))
+    first, second, *_ = await introducing_yourself_listen_tasks(client, user)
+
+    assert await lines_of(client, user, first) == tagged_lines("older")
+    assert await lines_of(client, user, second) == tagged_lines("newer")
+
+
+async def test_once_the_pool_is_used_up_a_task_gets_the_one_the_event_used_longest_ago(
+    client: AsyncClient, user: RegisteredUser, clock: Clock, db_session: AsyncSession
+) -> None:
+    await add_fallback(db_session)
+    await add_generated(db_session, "a", created_at=FIXED_NOW - timedelta(hours=2))
+    await add_generated(db_session, "b", created_at=FIXED_NOW - timedelta(hours=1))
+    day1_first, day1_second, day3, day11, _ = await introducing_yourself_listen_tasks(client, user)
+    await open_listen(client, user, day1_first["id"])  # fixes a
+    clock.now = FIXED_NOW + timedelta(hours=1)
+    await open_listen(client, user, day1_second["id"])  # fixes b
+
+    clock.now = at(12)
+    assert await lines_of(client, user, day3) == tagged_lines("a")
+    clock.now = at(20)
+    assert await lines_of(client, user, day11) == tagged_lines("b")
+
+
+async def test_without_a_live_generated_dialogue_at_the_events_level_a_task_gets_the_fallback(
+    client: AsyncClient, user: RegisteredUser, clock: Clock, db_session: AsyncSession
+) -> None:
+    await add_fallback(db_session)
+    await add_generated(db_session, "another level", level=Level.A1)
+    await add_generated(db_session, "retired", retired=True)
+    first, *_ = await introducing_yourself_listen_tasks(client, user)
+
+    assert await lines_of(client, user, first) == dialogue()["lines"]
+
+
+async def test_a_fixed_fallback_stays_after_dialogues_are_generated(
+    client: AsyncClient, user: RegisteredUser, clock: Clock, db_session: AsyncSession
+) -> None:
+    await add_fallback(db_session)
+    first, second, *_ = await introducing_yourself_listen_tasks(client, user)
+    opened = await open_listen(client, user, first["id"])
+    await add_generated(db_session, "generated")
+
+    assert await open_listen(client, user, first["id"]) == opened
+    assert await lines_of(client, user, second) == tagged_lines("generated")

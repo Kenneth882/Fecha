@@ -80,6 +80,17 @@ class ListenDialogue(Base):
         )
 
     @classmethod
+    def live_generated(cls, scenario_slug: str, language: str, level: Level) -> ColumnElement[bool]:
+        """The condition for the live generated pool of a (language, Scenario, Level) key."""
+        return and_(
+            cls.scenario_slug == scenario_slug,
+            cls.language == language,
+            cls.level == level,
+            cls.source == ListenSource.GENERATED,
+            cls.retired_at.is_(None),
+        )
+
+    @classmethod
     def from_content(cls, content: ListenDialogueContent, **columns: Any) -> "ListenDialogue":
         """A new row holding `content`, with the other `columns` set."""
         stored = content.model_dump(mode="json")

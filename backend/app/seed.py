@@ -92,6 +92,8 @@ async def seed_demo(session: AsyncSession, settings: Settings, now: datetime) ->
             goals="A first-round interview for a customer support role",
         ),
         history_noons[0],
+        # No content job: the demo runs on the hand-written fallbacks, with no API key.
+        job_queue=None,
     )
     graded_so_far = 0
     for noon in history_noons:

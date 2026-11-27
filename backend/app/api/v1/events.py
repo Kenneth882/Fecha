@@ -5,11 +5,12 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import get_current_user, get_db, get_now
+from app.core.deps import get_current_user, get_db, get_job_queue, get_now
 from app.core.errors import error_responses
 from app.models.user import User
 from app.schemas.event import EventCreate, EventDetail, EventSummary, PlanDetail, TodayDetail
 from app.services import events
+from app.workers.queue import JobQueue
 
 router = APIRouter(
     prefix="/events",
@@ -26,9 +27,13 @@ async def create(
     user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db)],
     now: Annotated[datetime, Depends(get_now)],
+    job_queue: Annotated[JobQueue, Depends(get_job_queue)],
 ) -> EventDetail:
-    """Create the User's Event and its first Plan, and return the Event's detail."""
-    return await events.create_event(session, user, data, now)
+    """Create the User's Event and its first Plan, and return the Event's detail.
+
+    Its content (generated Listen Dialogues) is filled in the background afterwards.
+    """
+    return await events.create_event(session, user, data, now, job_queue)
 
 
 @router.get("", name="list")
